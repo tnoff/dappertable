@@ -86,12 +86,18 @@ class DapperTable():
 
         row     :   List of items to go in row, must match length of headers
         '''
+        print('Adding row:', row)
         if len(row) != len(self.headers):
             raise DapperTableException('Row length must match length of headers')
         col_items = []
         for (count, item) in enumerate(row):
             col_string = shorten_string_cjk(item, self.headers[count]['length'])
             col_length = format_string_length(col_string, self.headers[count]['length'])
+            if self.headers[count]['name'] == 'Title':
+                print('---------------------------------------------------------------------------')
+                print(f'item: "{item}"')
+                print(f'col_string: "{col_string}"')
+                print(f'col length: "{col_length}"')
             col_items.append(f'{col_string:{col_length}}')
         self._rows.append(' || '.join(i for i in col_items))
     
