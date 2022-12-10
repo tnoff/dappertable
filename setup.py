@@ -9,5 +9,5 @@ setuptools.setup(
     install_requires=[],
     entry_points={},
     packages=setuptools.find_packages(exclude=['tests']),
-    version='0.0.1',
+    version='0.0.2',
 )

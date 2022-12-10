@@ -120,7 +120,7 @@ class DapperTable():
                 table = f'{item}'
             else:
                 table = f'{table}\n{item}'
-            if (count + 1) % self.rows_per_message is 0:
+            if (count + 1) % self.rows_per_message == 0:
                 table_strings.append(table)
                 table = ''
         if table:
