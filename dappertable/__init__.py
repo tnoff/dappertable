@@ -76,7 +76,7 @@ class DapperTable():
                 col_string = shorten_string_cjk(col['name'], col['length'])
                 col_length = format_string_length(col_string, col['length'])
                 col_items.append(f'{col_string:{col_length}}')
-            self._rows.append(' || '.join(i for i in col_items))
+            self._rows.append('|| '.join(i for i in col_items))
         except KeyError:
             raise DapperTableException('Headers missing header "name" or "length"')
 
@@ -93,7 +93,7 @@ class DapperTable():
             col_string = shorten_string_cjk(item, self.headers[count]['length'])
             col_length = format_string_length(col_string, self.headers[count]['length'])
             col_items.append(f'{col_string:{col_length}}')
-        self._rows.append(' || '.join(i for i in col_items))
+        self._rows.append('|| '.join(i for i in col_items))
     
     def remove_row(self, index):
         '''
