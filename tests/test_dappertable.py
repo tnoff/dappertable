@@ -49,33 +49,28 @@ def test_dapper_table():
     x.add_row(['4', '"All I Understand Is That I Don_t Understand" - Toe', 'Topshelf Records'])
     x.add_row(['5', '"C" by Toe', 'Topshelf Records'])
     result = x.print()
-    assert result == 'Pos || Title                                            || Uploader                        \n'\
-                     '1   || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)      || Hui Hon Man                     \n'\
-                     '2   || "Tremelo + Delay" by Toe                         || Topshelf Records                \n'\
-                     '3   || "むこう岸が視る夢" by Toe                      || Topshelf Records                \n'\
-                     '4   || "All I Understand Is That I Don_t Understand" .. || Topshelf Records                \n'\
-                     '5   || "C" by Toe                                       || Topshelf Records                '
+    assert result == 'Pos|| Title                                           || Uploader                        \n'\
+                     '1  || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)     || Hui Hon Man                     \n'\
+                     '2  || "Tremelo + Delay" by Toe                        || Topshelf Records                \n'\
+                     '3  || "むこう岸が視る夢" by Toe                     || Topshelf Records                \n'\
+                     '4  || "All I Understand Is That I Don_t Understand" ..|| Topshelf Records                \n'\
+                     '5  || "C" by Toe                                      || Topshelf Records                '
 
 
 def test_dapper_table_rows():
     headers = [
         {
             'name': 'pos',
-            'length': 5,
+            'length': 3,
         },
         {
-            'name': 'title',
-            'length': 16,
+            'name': 'name',
+            'length': 4,
         }
     ]
-    x = DapperTable(headers, rows_per_message=5)
+    x = DapperTable(headers, rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
-    x.add_row(['4', 'd'])
-    x.add_row(['5', 'e'])
-    x.add_row(['6', 'f'])
-    x.add_row(['7', 'g'])
     result = x.print()
-    assert result == ['pos   || title           \n1     || a               \n2     || b               \n3     || c               \n4     || d               \n5     || e               ',
-                      '6     || f               \n7     || g               ']
+    assert result == ['pos|| name\n1  || a   \n2  || b   ', '3  || c   ']
