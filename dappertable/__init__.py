@@ -130,3 +130,9 @@ class DapperTable():
         if table:
             table_strings.append(table)
         return table_strings
+
+    def size(self):
+        '''
+        Return size of table
+        '''
+        return len(self._rows) - 1

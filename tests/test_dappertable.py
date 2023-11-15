@@ -74,3 +74,21 @@ def test_dapper_table_rows():
     x.add_row(['3', 'c'])
     result = x.print()
     assert result == ['pos|| name\n1  || a\n2  || b', '3  || c']
+
+def test_dapper_table_length():
+    headers = [
+        {
+            'name': 'pos',
+            'length': 3,
+        },
+        {
+            'name': 'name',
+            'length': 4,
+        }
+    ]
+    x = DapperTable(headers, rows_per_message=2)
+    x.add_row(['1', 'a'])
+    x.add_row(['2', 'b'])
+    x.add_row(['3', 'c'])
+    result = x.size()
+    assert result == 3
