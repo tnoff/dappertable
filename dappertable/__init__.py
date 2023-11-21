@@ -80,6 +80,7 @@ class DapperTable():
                 total_length += col['length']
             row_string = '|| '.join(i for i in col_items)
             row_string = row_string.rstrip(' ')
+            total_length += len('|| ') * (len(col_items) - 1)
             self._rows.append(row_string)
             self._rows.append('-' * total_length)
         except KeyError:
