@@ -72,13 +72,16 @@ class DapperTable():
         self._rows = []
         try:
             col_items = []
+            total_length = 0
             for col in self.headers:
                 col_string = shorten_string_cjk(col['name'], col['length'])
                 col_length = format_string_length(col_string, col['length'])
                 col_items.append(f'{col_string:{col_length}}')
+                total_length += col['length']
             row_string = '|| '.join(i for i in col_items)
             row_string = row_string.rstrip(' ')
             self._rows.append(row_string)
+            self._rows.append('-' * total_length)
         except KeyError:
             raise DapperTableException('Headers missing header "name" or "length"')
 
@@ -135,4 +138,4 @@ class DapperTable():
         '''
         Return size of table
         '''
-        return len(self._rows) - 1
+        return len(self._rows) - 2

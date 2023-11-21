@@ -50,6 +50,7 @@ def test_dapper_table():
     x.add_row(['5', '"C" by Toe', 'Topshelf Records'])
     result = x.print()
     assert result == 'Pos|| Title                                           || Uploader\n'\
+                     '-----------------------------------------------------------------------------------\n'\
                      '1  || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)     || Hui Hon Man\n'\
                      '2  || "Tremelo + Delay" by Toe                        || Topshelf Records\n'\
                      '3  || "むこう岸が視る夢" by Toe                     || Topshelf Records\n'\
@@ -73,7 +74,7 @@ def test_dapper_table_rows():
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     result = x.print()
-    assert result == ['pos|| name\n1  || a\n2  || b', '3  || c']
+    assert result == ['pos|| name\n-------\n1  || a', '2  || b\n3  || c']
 
 def test_dapper_table_length():
     headers = [
