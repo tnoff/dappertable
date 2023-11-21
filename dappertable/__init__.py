@@ -122,8 +122,8 @@ class DapperTable():
         if not self.rows_per_message:
             return '\n'.join(i for i in self._rows)
         table_strings = []
-        table = self._rows[0]
-        for (count, item) in enumerate(self._rows[1:]):
+        table = '\n'.join(i for i in self._rows[0:2])
+        for (count, item) in enumerate(self._rows[2:]):
             if not table:
                 table = f'{item}'
             else:

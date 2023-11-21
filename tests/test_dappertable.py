@@ -74,7 +74,7 @@ def test_dapper_table_rows():
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     result = x.print()
-    assert result == ['pos|| name\n----------\n1  || a', '2  || b\n3  || c']
+    assert result == ['pos|| name\n----------\n1  || a\n2  || b', '3  || c']
 
 def test_dapper_table_length():
     headers = [
