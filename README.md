@@ -1,8 +1,10 @@
 # DapperTable
 
-Similar to PrettyTable, print formatted tables in python using f-string. Handles East Asian languages that have double spaced characters.
+Similar to PrettyTable, print formatted tables in python using f-string. Tables returned as a list of formatted strings if requested.
 
-Most of the logic taken from: https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
+This is useful when printing large tables out to a 3rd party library that caps the length of a message, such as printing a formatted table as a Discord message.
+
+Handles East Asian languages that have double spaced characters. Most of the logic taken from: https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 
 ## Usage
 
