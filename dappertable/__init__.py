@@ -1,7 +1,11 @@
-# Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
+'''
+Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
+Use these functions to get proper length of strings for formatting with east asian characters
+'''
+from typing import List
 from unicodedata import east_asian_width
 
-def shorten_string_cjk(intput_string, width, placeholder='..'):
+def shorten_string_cjk(intput_string: str, width: int, placeholder: str = '..') -> str:
     '''
     Shorten a string with CJK (double byte) characters
 
@@ -25,10 +29,9 @@ def shorten_string_cjk(intput_string, width, placeholder='..'):
                 out_string += char
         # return string with new width and placeholder
         return f"{out_string}{placeholder}"
-    else:
-        return str(intput_string)
+    return str(intput_string)
 
-def string_length_cjk(input_string):
+def string_length_cjk(input_string: str) -> int:
     '''
     String lenth for a CJK (double byte) string
 
@@ -37,7 +40,7 @@ def string_length_cjk(input_string):
     # return string len including double count for double width characters
     return sum(1 + (east_asian_width(c) in "WF") for c in input_string)
 
-def format_string_length(input_string, length):
+def format_string_length(input_string: str, length: int) -> int:
     '''
     Returns length udpated for string with double byte characters
     get string length normal, get string length including double byte characters
@@ -50,13 +53,15 @@ def format_string_length(input_string, length):
 
 
 class DapperTableException(Exception):
-    pass
+    '''
+    Generic exception class
+    '''
 
 class DapperTable():
     '''
     Format nice tables with f-string
     '''
-    def __init__(self, headers, rows_per_message=None):
+    def __init__(self, headers: List[dict], rows_per_message: int = None):
         '''
         Init a dapper table
 
@@ -83,10 +88,10 @@ class DapperTable():
             total_length += len('|| ') * (len(col_items) - 1)
             self._rows.append(row_string)
             self._rows.append('-' * total_length)
-        except KeyError:
-            raise DapperTableException('Headers missing header "name" or "length"')
+        except KeyError as exc:
+            raise DapperTableException('Headers missing header "name" or "length"') from exc
 
-    def add_row(self, row):
+    def add_row(self, row: List[str]) -> bool:
         '''
         Add row to table
 
@@ -102,20 +107,21 @@ class DapperTable():
         row_string = '|| '.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
         self._rows.append(row_string)
-    
-    def remove_row(self, index):
+        return True
+
+    def remove_row(self, index: int) -> bool:
         '''
         Remove row from table
 
         index   :   Index of row, cannot remove headers
         '''
-        # Add 1 so we dont remove first item which is headers
         try:
-            del self._rows[index + 1]
-        except IndexError:
-            raise DapperTableException('Invalid deletion index')
+            del self._rows[index + 2]
+        except IndexError as exc:
+            raise DapperTableException('Invalid deletion index') from exc
+        return True
 
-    def print(self):
+    def print(self) -> List[str]:
         '''
         Print table
         '''
@@ -135,7 +141,7 @@ class DapperTable():
             table_strings.append(table)
         return table_strings
 
-    def size(self):
+    def size(self) -> int:
         '''
         Return size of table
         '''
