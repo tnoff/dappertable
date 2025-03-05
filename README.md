@@ -1,8 +1,6 @@
 # DapperTable
 
-Similar to PrettyTable, print formatted tables in python using f-string. Tables returned as a list of formatted strings if requested.
-
-This is useful when printing large tables out to a 3rd party library that caps the length of a message, such as printing a formatted table as a Discord message.
+Similar to [prettytable](https://pypi.org/project/prettytable/), print formatted tables in python using f-string. Tables can be split into a list of strings if requested, which is useful when sending messages via 3rd party libraries that limit messages on length of a string.
 
 Handles East Asian languages that have double spaced characters. Most of the logic taken from: https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 
@@ -23,7 +21,7 @@ Example:
 >>>
 ```
 
-You can also pass in a `rows_per_message` value into the initial table, this will split the table into multiple strings. This is useful for clients sending requests via an api, so you can 'paginate' the table in a manner of speaking. I use this alot in my discord bot implementation for example, since each message has a maximum length that can be sent.
+You can also pass in a `rows_per_message` value into the initial table, this will split the table into multiple strings. This is useful for clients sending requests via an API, so you can 'paginate' the table in a manner of speaking. I use this in my discord bot implementation for example, since each message has a maximum length that can be sent.
 
 ```
 >>> t = DapperTable([{'name': 'pos', 'length': 3}, {'name': 'title', 'length': 48}], rows_per_message=2)
