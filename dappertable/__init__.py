@@ -51,21 +51,31 @@ def format_string_length(input_string: str, length: int) -> int:
     '''
     return length - (string_length_cjk(input_string) - len(input_string))
 
-
 class DapperTableException(Exception):
     '''
     Generic exception class
     '''
 
+class DapperTableHeader():
+    '''
+    Basic header type
+    '''
+    def __init__(self, name: str, length: int):
+        '''
+        Set basic variables
+        '''
+        self.name = name
+        self.length = length
+
 class DapperTable():
     '''
     Format nice tables with f-string
     '''
-    def __init__(self, headers: List[dict], rows_per_message: int = None):
+    def __init__(self, headers: List[DapperTableHeader], rows_per_message: int = None):
         '''
         Init a dapper table
 
-        headers             :   List of headers to put at top. Should be list of dicts with {name: <name>, length: <length>}
+        headers             :   List of headers to put at top. Should be valid DapperTableHeader objects
         rows_per_message    :   Split table by this number of rows to different messages
         '''
         if not headers:
@@ -75,34 +85,34 @@ class DapperTable():
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
-        try:
-            col_items = []
-            total_length = 0
-            for col in self.headers:
-                col_string = shorten_string_cjk(col['name'], col['length'])
-                col_length = format_string_length(col_string, col['length'])
-                col_items.append(f'{col_string:{col_length}}')
-                total_length += col['length']
-            row_string = '|| '.join(i for i in col_items)
-            row_string = row_string.rstrip(' ')
-            total_length += len('|| ') * (len(col_items) - 1)
-            self._rows.append(row_string)
-            self._rows.append('-' * total_length)
-        except KeyError as exc:
-            raise DapperTableException('Headers missing header "name" or "length"') from exc
+        col_items = []
+        total_length = 0
+        # Setup headers as first row
+        for col in self.headers:
+            if not isinstance(col, DapperTableHeader):
+                raise DapperTableException('Header must be DapperTableHeader object')
+            col_string = shorten_string_cjk(col.name, col.length)
+            col_length = format_string_length(col_string, col.length)
+            col_items.append(f'{col_string:{col_length}}')
+            total_length += col.length
+        row_string = '|| '.join(i for i in col_items)
+        row_string = row_string.rstrip(' ')
+        total_length += len('|| ') * (len(col_items) - 1)
+        self._rows.append(row_string)
+        self._rows.append('-' * total_length)
 
     def add_row(self, row: List[str]) -> bool:
         '''
         Add row to table
 
-        row     :   List of items to go in row, must match length of headers
+        row     :   List of items to go in row, assumes each item list is string representation
         '''
         if len(row) != len(self.headers):
             raise DapperTableException('Row length must match length of headers')
         col_items = []
         for (count, item) in enumerate(row):
-            col_string = shorten_string_cjk(item, self.headers[count]['length'])
-            col_length = format_string_length(col_string, self.headers[count]['length'])
+            col_string = shorten_string_cjk(item, self.headers[count].length)
+            col_length = format_string_length(col_string, self.headers[count].length)
             col_items.append(f'{col_string:{col_length}}')
         row_string = '|| '.join(i for i in col_items)
         row_string = row_string.rstrip(' ')

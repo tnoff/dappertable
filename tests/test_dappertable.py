@@ -1,7 +1,7 @@
 import pytest
 
 from dappertable import shorten_string_cjk, format_string_length
-from dappertable import DapperTable, DapperTableException
+from dappertable import DapperTable, DapperTableHeader, DapperTableException
 
 def test_shorten_string_cjk():
     input = 'Some string 123 other text'
@@ -31,18 +31,9 @@ def test_format_string_length():
 
 def test_dapper_table():
     headers = [
-        {
-            'name': 'Pos',
-            'length': 3,
-        },
-        {
-            'name': 'Title',
-            'length': 48,
-        },
-        {
-            'name': 'Uploader',
-            'length': 32,
-        }
+        DapperTableHeader('Pos', 3),
+        DapperTableHeader('Title', 48),
+        DapperTableHeader('Uploader', 32),
     ]
     x = DapperTable(headers)
     x.add_row(['1', '[HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)', 'Hui Hon Man'])
@@ -62,14 +53,8 @@ def test_dapper_table():
 
 def test_dapper_table_rows():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
     x = DapperTable(headers, rows_per_message=2)
     x.add_row(['1', 'a'])
@@ -80,14 +65,8 @@ def test_dapper_table_rows():
 
 def test_dapper_table_length():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
     x = DapperTable(headers, rows_per_message=2)
     x.add_row(['1', 'a'])
@@ -105,18 +84,12 @@ def test_dapper_table_no_headers_no_rows():
         assert 'Invalid value for rows per message' in str(invalid_error.value)
     with pytest.raises(DapperTableException) as invalid_row:
         DapperTable([{'foo': 'bar'}])
-        assert 'Headers missing header' in str(invalid_row.value)
+        assert 'Header must be DapperTableHeader object' in str(invalid_row.value)
 
 def test_add_invalid_row():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
     x = DapperTable(headers, rows_per_message=2)
     with pytest.raises(DapperTableException) as error:
@@ -125,14 +98,8 @@ def test_add_invalid_row():
 
 def test_delete_row():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4)
     ]
     x = DapperTable(headers, rows_per_message=2)
     x.add_row(['1', 'a'])
