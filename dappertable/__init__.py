@@ -67,34 +67,45 @@ class DapperTableHeader():
         self.name = name
         self.length = length
 
+class DapperTableHeaderOptions():
+    '''
+    Combined Header Options
+    '''
+    def __init__(self, headers: List[DapperTableHeader], separator='||'):
+        self.headers = headers
+        self.separator = separator
+        if isinstance(headers, DapperTableHeader):
+            self.headers = [headers]
+        if not self.headers:
+            raise DapperTableException('Must have at least one header')
+        for header in self.headers:
+            if not isinstance(header, DapperTableHeader):
+                raise DapperTableException('Header must be DapperTableHeader object')
+
+
 class DapperTable():
     '''
     Format nice tables with f-string
     '''
-    def __init__(self, headers: List[DapperTableHeader],
-                 rows_per_message: int = None,
-                 separator='||'):
+    def __init__(self, header_options : DapperTableHeaderOptions,
+                 rows_per_message: int = None):
         '''
         Init a dapper table
 
-        headers             :   List of headers to put at top. Should be valid DapperTableHeader objects
+        headerOptions       :   DapperTable header options
         rows_per_message    :   Split table by this number of rows to different messages
-        separator           :   Str to separate columns in a row, a spaces will be added
         '''
-        if not headers:
-            raise DapperTableException('Must have at least one header')
-        self.headers = headers
+        self.headers = header_options.headers
+        self.separator = f'{header_options.separator.replace(" ", "")} '
         self.rows_per_message = rows_per_message
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
-        self.separator = f'{separator.replace(" ", "")} '
+
         col_items = []
         total_length = 0
         # Setup headers as first row
         for col in self.headers:
-            if not isinstance(col, DapperTableHeader):
-                raise DapperTableException('Header must be DapperTableHeader object')
             col_string = shorten_string_cjk(col.name, col.length)
             col_length = format_string_length(col_string, col.length)
             col_items.append(f'{col_string:{col_length}}')
