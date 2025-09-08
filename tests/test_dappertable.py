@@ -35,7 +35,7 @@ def test_dapper_table():
         DapperTableHeader('Title', 48),
         DapperTableHeader('Uploader', 32),
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers))
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers))
     x.add_row(['1', '[HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)', 'Hui Hon Man'])
     x.add_row(['2', '"Tremelo + Delay" by Toe', 'Topshelf Records'])
     x.add_row(['3', '"むこう岸が視る夢" by Toe', 'Topshelf Records'])
@@ -56,7 +56,7 @@ def test_dapper_table_rows():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -68,7 +68,7 @@ def test_dapper_table_length():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -77,10 +77,10 @@ def test_dapper_table_length():
 
 def test_dapper_table_no_headers_no_rows():
     with pytest.raises(DapperTableException) as error:
-        DapperTable(DapperTableHeaderOptions([]))
+        DapperTable(header_options=DapperTableHeaderOptions([]))
         assert 'Must have at least one header' in str(error.value)
     with pytest.raises(DapperTableException) as invalid_error:
-        DapperTable(DapperTableHeaderOptions(DapperTableHeader('name', 5)), rows_per_message=-1)
+        DapperTable(header_options=DapperTableHeaderOptions(DapperTableHeader('name', 5)), rows_per_message=-1)
         assert 'Invalid value for rows per message' in str(invalid_error.value)
     with pytest.raises(DapperTableException) as invalid_row:
         DapperTableHeaderOptions('foo')
@@ -91,7 +91,7 @@ def test_add_invalid_row():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     with pytest.raises(DapperTableException) as error:
         x.add_row(['foo'])
         assert 'Row length must match length of headers' in str(error.value)
@@ -101,7 +101,7 @@ def test_delete_row():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4)
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -119,7 +119,7 @@ def test_separator_override():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4)
     ]
-    x = DapperTable(DapperTableHeaderOptions(headers, separator='+'), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers, separator='+'), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -128,3 +128,28 @@ def test_separator_override():
     assert result == 2
     result = x.print()
     assert result == ['pos+ name\n---------\n1  + a\n3  + c']
+
+def test_no_headers_basic():
+    x = DapperTable()
+    x.add_row('foo bar stuff')
+    x.add_row('more stuff here')
+    assert x.size() == 2
+    result = x.print()
+    assert result == 'foo bar stuff\nmore stuff here'
+    x.remove_row(0)
+    assert x.print() == 'more stuff here'
+
+def test_no_headers_with_messages_per_set():
+    x = DapperTable(rows_per_message=2)
+    x.add_row('foo bar stuff')
+    x.add_row('more stuff here')
+    x.add_row('another row just for fun')
+    assert x.size() == 3
+    result = x.print()
+    assert result == ['foo bar stuff\nmore stuff here', 'another row just for fun']
+
+def test_invalid_row_add():
+    x = DapperTable(DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 5)]))
+    with pytest.raises(DapperTableException) as error:
+        x.add_row('foo')
+        assert 'Row input must be list if headers were given' in str(error.value)

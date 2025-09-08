@@ -85,54 +85,66 @@ class DapperTableHeaderOptions():
 
 class DapperTable():
     '''
-    Format nice tables with f-string
+    Split large inputs into smaller messages, also supports formatting
     '''
-    def __init__(self, header_options : DapperTableHeaderOptions,
+    def __init__(self, header_options : DapperTableHeaderOptions = None,
                  rows_per_message: int = None):
         '''
         Init a dapper table
 
-        headerOptions       :   DapperTable header options
+        headerOptions       :   DapperTable header options, if not given will treat as raw input
         rows_per_message    :   Split table by this number of rows to different messages
         '''
-        self.headers = header_options.headers
-        self.separator = f'{header_options.separator.replace(" ", "")} '
+
         self.rows_per_message = rows_per_message
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
 
-        col_items = []
-        total_length = 0
-        # Setup headers as first row
-        for col in self.headers:
-            col_string = shorten_string_cjk(col.name, col.length)
-            col_length = format_string_length(col_string, col.length)
-            col_items.append(f'{col_string:{col_length}}')
-            total_length += col.length
-        row_string = self.separator.join(i for i in col_items)
-        row_string = row_string.rstrip(' ')
-        total_length += len(self.separator) * (len(col_items) - 1)
-        self._rows.append(row_string)
-        self._rows.append('-' * total_length)
-        self.header_offset = 2
+        self.headers = None
+        self.separator = None
+        self.header_offset = 0
 
-    def add_row(self, row: List[str]) -> bool:
+        if header_options:
+            self.headers = header_options.headers
+            self.separator = f'{header_options.separator.replace(" ", "")} '
+            col_items = []
+            total_length = 0
+            # Setup headers as first row
+            for col in self.headers:
+                col_string = shorten_string_cjk(col.name, col.length)
+                col_length = format_string_length(col_string, col.length)
+                col_items.append(f'{col_string:{col_length}}')
+                total_length += col.length
+            row_string = self.separator.join(i for i in col_items)
+            row_string = row_string.rstrip(' ')
+            total_length += len(self.separator) * (len(col_items) - 1)
+            self._rows.append(row_string)
+            self._rows.append('-' * total_length)
+            self.header_offset = 2
+
+    def add_row(self, row: List[str] | str) -> bool:
         '''
         Add row to table
 
         row     :   List of items to go in row, assumes each item list is string representation
         '''
-        if len(row) != len(self.headers):
-            raise DapperTableException('Row length must match length of headers')
-        col_items = []
-        for (count, item) in enumerate(row):
-            col_string = shorten_string_cjk(item, self.headers[count].length)
-            col_length = format_string_length(col_string, self.headers[count].length)
-            col_items.append(f'{col_string:{col_length}}')
-        row_string = self.separator.join(i for i in col_items)
-        row_string = row_string.rstrip(' ')
-        self._rows.append(row_string)
+        if self.headers:
+            if not isinstance(row, list):
+                raise DapperTableException('Row input must be list if headers were given')
+            if len(row) != len(self.headers):
+                raise DapperTableException('Row length must match length of headers')
+            col_items = []
+            for (count, item) in enumerate(row):
+                col_string = shorten_string_cjk(item, self.headers[count].length)
+                col_length = format_string_length(col_string, self.headers[count].length)
+                col_items.append(f'{col_string:{col_length}}')
+            row_string = self.separator.join(i for i in col_items)
+            row_string = row_string.rstrip(' ')
+            self._rows.append(row_string)
+            return True
+        # If headers weren't given, just add the raw string
+        self._rows.append(row)
         return True
 
     def remove_row(self, index: int) -> bool:
