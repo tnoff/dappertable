@@ -115,6 +115,7 @@ class DapperTable():
         total_length += len(self.separator) * (len(col_items) - 1)
         self._rows.append(row_string)
         self._rows.append('-' * total_length)
+        self.header_offset = 2
 
     def add_row(self, row: List[str]) -> bool:
         '''
@@ -141,7 +142,7 @@ class DapperTable():
         index   :   Index of row, cannot remove headers
         '''
         try:
-            del self._rows[index + 2]
+            del self._rows[index + self.header_offset]
         except IndexError as exc:
             raise DapperTableException('Invalid deletion index') from exc
         return True
@@ -153,8 +154,8 @@ class DapperTable():
         if not self.rows_per_message:
             return '\n'.join(i for i in self._rows)
         table_strings = []
-        table = '\n'.join(i for i in self._rows[0:2])
-        for (count, item) in enumerate(self._rows[2:]):
+        table = '\n'.join(i for i in self._rows[0:self.header_offset])
+        for (count, item) in enumerate(self._rows[self.header_offset:]):
             if not table:
                 table = f'{item}'
             else:
@@ -170,4 +171,4 @@ class DapperTable():
         '''
         Return size of table
         '''
-        return len(self._rows) - 2
+        return len(self._rows) - self.header_offset
