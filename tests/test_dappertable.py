@@ -113,3 +113,18 @@ def test_delete_row():
     with pytest.raises(DapperTableException) as error:
         x.remove_row(99)
         assert 'Invalid deletion index' in str(error.value)
+
+def test_separator_override():
+    headers = [
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4)
+    ]
+    x = DapperTable(headers, rows_per_message=2, separator='+')
+    x.add_row(['1', 'a'])
+    x.add_row(['2', 'b'])
+    x.add_row(['3', 'c'])
+    x.remove_row(1)
+    result = x.size()
+    assert result == 2
+    result = x.print()
+    assert result == ['pos+ name\n---------\n1  + a\n3  + c']

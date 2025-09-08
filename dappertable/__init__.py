@@ -71,12 +71,15 @@ class DapperTable():
     '''
     Format nice tables with f-string
     '''
-    def __init__(self, headers: List[DapperTableHeader], rows_per_message: int = None):
+    def __init__(self, headers: List[DapperTableHeader],
+                 rows_per_message: int = None,
+                 separator='||'):
         '''
         Init a dapper table
 
         headers             :   List of headers to put at top. Should be valid DapperTableHeader objects
         rows_per_message    :   Split table by this number of rows to different messages
+        separator           :   Str to separate columns in a row, a spaces will be added
         '''
         if not headers:
             raise DapperTableException('Must have at least one header')
@@ -85,6 +88,7 @@ class DapperTable():
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
+        self.separator = f'{separator.replace(" ", "")} '
         col_items = []
         total_length = 0
         # Setup headers as first row
@@ -95,9 +99,9 @@ class DapperTable():
             col_length = format_string_length(col_string, col.length)
             col_items.append(f'{col_string:{col_length}}')
             total_length += col.length
-        row_string = '|| '.join(i for i in col_items)
+        row_string = self.separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
-        total_length += len('|| ') * (len(col_items) - 1)
+        total_length += len(self.separator) * (len(col_items) - 1)
         self._rows.append(row_string)
         self._rows.append('-' * total_length)
 
@@ -114,7 +118,7 @@ class DapperTable():
             col_string = shorten_string_cjk(item, self.headers[count].length)
             col_length = format_string_length(col_string, self.headers[count].length)
             col_items.append(f'{col_string:{col_length}}')
-        row_string = '|| '.join(i for i in col_items)
+        row_string = self.separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
         self._rows.append(row_string)
         return True
