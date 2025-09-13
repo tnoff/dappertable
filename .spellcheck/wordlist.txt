@@ -4,3 +4,8 @@ prettytable
 gullevek
 https
 pos
+DapperTableHeaderOptions
+DapperTableHeader
+init
+nsecond
+nthird

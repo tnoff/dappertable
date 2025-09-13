@@ -1,7 +1,7 @@
 import pytest
 
 from dappertable import shorten_string_cjk, format_string_length
-from dappertable import DapperTable, DapperTableException
+from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, DapperTableException
 
 def test_shorten_string_cjk():
     input = 'Some string 123 other text'
@@ -31,20 +31,11 @@ def test_format_string_length():
 
 def test_dapper_table():
     headers = [
-        {
-            'name': 'Pos',
-            'length': 3,
-        },
-        {
-            'name': 'Title',
-            'length': 48,
-        },
-        {
-            'name': 'Uploader',
-            'length': 32,
-        }
+        DapperTableHeader('Pos', 3),
+        DapperTableHeader('Title', 48),
+        DapperTableHeader('Uploader', 32),
     ]
-    x = DapperTable(headers)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers))
     x.add_row(['1', '[HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)', 'Hui Hon Man'])
     x.add_row(['2', '"Tremelo + Delay" by Toe', 'Topshelf Records'])
     x.add_row(['3', '"むこう岸が視る夢" by Toe', 'Topshelf Records'])
@@ -62,87 +53,103 @@ def test_dapper_table():
 
 def test_dapper_table_rows():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
-    x = DapperTable(headers, rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     result = x.print()
-    assert result == ['pos|| name\n----------\n1  || a\n2  || b', '3  || c']
+    assert result == ['pos|| name\n----------', '1  || a\n2  || b', '3  || c']
 
 def test_dapper_table_length():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
-    x = DapperTable(headers, rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
-    result = x.size()
+    result = x.size
     assert result == 3
 
 def test_dapper_table_no_headers_no_rows():
     with pytest.raises(DapperTableException) as error:
-        DapperTable([])
+        DapperTable(header_options=DapperTableHeaderOptions([]))
         assert 'Must have at least one header' in str(error.value)
     with pytest.raises(DapperTableException) as invalid_error:
-        DapperTable([1,2], rows_per_message=-1)
+        DapperTable(header_options=DapperTableHeaderOptions(DapperTableHeader('name', 5)), rows_per_message=-1)
         assert 'Invalid value for rows per message' in str(invalid_error.value)
     with pytest.raises(DapperTableException) as invalid_row:
-        DapperTable([{'foo': 'bar'}])
-        assert 'Headers missing header' in str(invalid_row.value)
+        DapperTableHeaderOptions('foo')
+        assert 'Header must be DapperTableHeader object' in str(invalid_row.value)
 
 def test_add_invalid_row():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
     ]
-    x = DapperTable(headers, rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     with pytest.raises(DapperTableException) as error:
         x.add_row(['foo'])
         assert 'Row length must match length of headers' in str(error.value)
 
 def test_delete_row():
     headers = [
-        {
-            'name': 'pos',
-            'length': 3,
-        },
-        {
-            'name': 'name',
-            'length': 4,
-        }
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4)
     ]
-    x = DapperTable(headers, rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     x.remove_row(1)
-    result = x.size()
+    result = x.size
     assert result == 2
     result = x.print()
-    assert result == ['pos|| name\n----------\n1  || a\n3  || c']
+    assert result == ['pos|| name\n----------', '1  || a\n3  || c']
     with pytest.raises(DapperTableException) as error:
         x.remove_row(99)
         assert 'Invalid deletion index' in str(error.value)
+
+def test_separator_override():
+    headers = [
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4)
+    ]
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers, separator='+'), rows_per_message=2)
+    x.add_row(['1', 'a'])
+    x.add_row(['2', 'b'])
+    x.add_row(['3', 'c'])
+    x.remove_row(1)
+    result = x.size
+    assert result == 2
+    result = x.print()
+    assert result == ['pos+ name\n---------', '1  + a\n3  + c']
+
+def test_no_headers_basic():
+    x = DapperTable()
+    x.add_row('foo bar stuff')
+    x.add_row('more stuff here')
+    assert x.size == 2
+    result = x.print()
+    assert result == 'foo bar stuff\nmore stuff here'
+    x.remove_row(0)
+    assert x.print() == 'more stuff here'
+
+def test_no_headers_with_messages_per_set():
+    x = DapperTable(rows_per_message=2)
+    x.add_row('foo bar stuff')
+    x.add_row('more stuff here')
+    x.add_row('another row just for fun')
+    assert x.size == 3
+    result = x.print()
+    assert result == ['foo bar stuff\nmore stuff here', 'another row just for fun']
+
+def test_invalid_row_add():
+    x = DapperTable(DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 5)]))
+    with pytest.raises(DapperTableException) as error:
+        x.add_row('foo')
+        assert 'Row input must be list if headers were given' in str(error.value)

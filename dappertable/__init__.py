@@ -52,61 +52,85 @@ def format_string_length(input_string: str, length: int) -> int:
     return length - (string_length_cjk(input_string) - len(input_string))
 
 
+# https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+def chunk_list(input_list, size):
+    '''
+    Split list into equal sized chunks
+    '''
+    size = max(1, size)
+    return [input_list[i:i+size] for i in range(0, len(input_list), size)]
+
 class DapperTableException(Exception):
     '''
     Generic exception class
     '''
 
+class DapperTableHeader():
+    '''
+    Basic header type
+    '''
+    def __init__(self, name: str, length: int):
+        '''
+        Set basic variables
+        '''
+        self.name = name
+        self.length = length
+
+class DapperTableHeaderOptions():
+    '''
+    Combined Header Options
+    '''
+    def __init__(self, headers: List[DapperTableHeader], separator='||'):
+        self.headers = headers
+        self.separator = separator
+        if isinstance(headers, DapperTableHeader):
+            self.headers = [headers]
+        if not self.headers:
+            raise DapperTableException('Must have at least one header')
+        for header in self.headers:
+            if not isinstance(header, DapperTableHeader):
+                raise DapperTableException('Header must be DapperTableHeader object')
+
+
 class DapperTable():
     '''
-    Format nice tables with f-string
+    Split large inputs into smaller messages, also supports formatting
     '''
-    def __init__(self, headers: List[dict], rows_per_message: int = None):
+    def __init__(self, header_options : DapperTableHeaderOptions = None,
+                 rows_per_message: int = None):
         '''
         Init a dapper table
 
-        headers             :   List of headers to put at top. Should be list of dicts with {name: <name>, length: <length>}
+        headerOptions       :   DapperTable header options, if not given will treat as raw input
         rows_per_message    :   Split table by this number of rows to different messages
         '''
-        if not headers:
-            raise DapperTableException('Must have at least one header')
-        self.headers = headers
-        self.rows_per_message = rows_per_message
+
+        self._rows_per_message = rows_per_message
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
-        try:
-            col_items = []
-            total_length = 0
-            for col in self.headers:
-                col_string = shorten_string_cjk(col['name'], col['length'])
-                col_length = format_string_length(col_string, col['length'])
-                col_items.append(f'{col_string:{col_length}}')
-                total_length += col['length']
-            row_string = '|| '.join(i for i in col_items)
-            row_string = row_string.rstrip(' ')
-            total_length += len('|| ') * (len(col_items) - 1)
-            self._rows.append(row_string)
-            self._rows.append('-' * total_length)
-        except KeyError as exc:
-            raise DapperTableException('Headers missing header "name" or "length"') from exc
 
-    def add_row(self, row: List[str]) -> bool:
+        self._headers = None
+        self._separator = None
+
+        if header_options:
+            self._headers = header_options.headers
+            # Make sure we add a single space at the end
+            self._separator = f'{header_options.separator.replace(" ", "")} '
+
+    def add_row(self, row: List[str] | str) -> bool:
         '''
         Add row to table
 
-        row     :   List of items to go in row, must match length of headers
+        row     :   List of items to go in row, assumes each item list is string representation
         '''
-        if len(row) != len(self.headers):
-            raise DapperTableException('Row length must match length of headers')
-        col_items = []
-        for (count, item) in enumerate(row):
-            col_string = shorten_string_cjk(item, self.headers[count]['length'])
-            col_length = format_string_length(col_string, self.headers[count]['length'])
-            col_items.append(f'{col_string:{col_length}}')
-        row_string = '|| '.join(i for i in col_items)
-        row_string = row_string.rstrip(' ')
-        self._rows.append(row_string)
+        # If headers, add extra checks, else just accept input
+        if self._headers:
+            if not isinstance(row, list):
+                raise DapperTableException('Row input must be list if headers were given')
+            if len(row) != len(self._headers):
+                raise DapperTableException('Row length must match length of headers')
+        self._rows.append(row)
         return True
 
     def remove_row(self, index: int) -> bool:
@@ -116,33 +140,75 @@ class DapperTable():
         index   :   Index of row, cannot remove headers
         '''
         try:
-            del self._rows[index + 2]
+            del self._rows[index]
         except IndexError as exc:
             raise DapperTableException('Invalid deletion index') from exc
         return True
 
-    def print(self) -> List[str]:
+    def _generate_headers(self) -> List[str]:
+        '''
+        Generate header content, first two rows of table
+        '''
+        col_items = []
+        total_length = 0
+        # Setup headers as first row
+        for col in self._headers:
+            col_string = shorten_string_cjk(col.name, col.length)
+            col_length = format_string_length(col_string, col.length)
+            col_items.append(f'{col_string:{col_length}}')
+            total_length += col.length
+        row_string = self._separator.join(i for i in col_items)
+        row_string = row_string.rstrip(' ')
+        total_length += len(self._separator) * (len(col_items) - 1)
+        # First row and then table formatter
+        return [row_string, '-' * total_length]
+
+    def _format_row(self, row) -> str:
+        '''
+        Format row content to headers
+        '''
+        col_items = []
+        for (count, item) in enumerate(row):
+            col_string = shorten_string_cjk(item, self._headers[count].length)
+            col_length = format_string_length(col_string, self._headers[count].length)
+            col_items.append(f'{col_string:{col_length}}')
+        row_string = self._separator.join(i for i in col_items)
+        row_string = row_string.rstrip(' ')
+        return row_string
+
+    def _format_rows(self) -> List[str]:
+        '''
+        Format all rows in the table
+        '''
+        output = []
+        for row in self._rows:
+            if self._headers:
+                output += [self._format_row(row)]
+                continue
+            output += [row]
+        return output
+
+    def print(self) -> List[str] | str:
         '''
         Print table
         '''
-        if not self.rows_per_message:
-            return '\n'.join(i for i in self._rows)
-        table_strings = []
-        table = '\n'.join(i for i in self._rows[0:2])
-        for (count, item) in enumerate(self._rows[2:]):
-            if not table:
-                table = f'{item}'
-            else:
-                table = f'{table}\n{item}'
-            if (count + 1) % self.rows_per_message == 0:
-                table_strings.append(table)
-                table = ''
-        if table:
-            table_strings.append(table)
-        return table_strings
+        # Set outputs properly
+        all_output = []
+        if self._headers:
+            all_output += self._generate_headers()
+        all_output += self._format_rows()
+        if not self._rows_per_message:
+            return '\n'.join(i for i in all_output)
+        # Split rows if necessary
+        split_rows = chunk_list(all_output, self._rows_per_message)
+        split_output = []
+        for sr in split_rows:
+            split_output.append('\n'.join(i for i in sr))
+        return split_output
 
+    @property
     def size(self) -> int:
         '''
-        Return size of table
+        Return size of table (does not include headers)
         '''
-        return len(self._rows) - 2
+        return len(self._rows)
