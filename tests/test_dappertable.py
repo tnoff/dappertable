@@ -61,7 +61,7 @@ def test_dapper_table_rows():
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     result = x.print()
-    assert result == ['pos|| name\n----------\n1  || a\n2  || b', '3  || c']
+    assert result == ['pos|| name\n----------', '1  || a\n2  || b', '3  || c']
 
 def test_dapper_table_length():
     headers = [
@@ -72,7 +72,7 @@ def test_dapper_table_length():
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
-    result = x.size()
+    result = x.size
     assert result == 3
 
 def test_dapper_table_no_headers_no_rows():
@@ -106,10 +106,10 @@ def test_delete_row():
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     x.remove_row(1)
-    result = x.size()
+    result = x.size
     assert result == 2
     result = x.print()
-    assert result == ['pos|| name\n----------\n1  || a\n3  || c']
+    assert result == ['pos|| name\n----------', '1  || a\n3  || c']
     with pytest.raises(DapperTableException) as error:
         x.remove_row(99)
         assert 'Invalid deletion index' in str(error.value)
@@ -124,16 +124,16 @@ def test_separator_override():
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     x.remove_row(1)
-    result = x.size()
+    result = x.size
     assert result == 2
     result = x.print()
-    assert result == ['pos+ name\n---------\n1  + a\n3  + c']
+    assert result == ['pos+ name\n---------', '1  + a\n3  + c']
 
 def test_no_headers_basic():
     x = DapperTable()
     x.add_row('foo bar stuff')
     x.add_row('more stuff here')
-    assert x.size() == 2
+    assert x.size == 2
     result = x.print()
     assert result == 'foo bar stuff\nmore stuff here'
     x.remove_row(0)
@@ -144,7 +144,7 @@ def test_no_headers_with_messages_per_set():
     x.add_row('foo bar stuff')
     x.add_row('more stuff here')
     x.add_row('another row just for fun')
-    assert x.size() == 3
+    assert x.size == 3
     result = x.print()
     assert result == ['foo bar stuff\nmore stuff here', 'another row just for fun']
 
