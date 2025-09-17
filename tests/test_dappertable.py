@@ -177,4 +177,20 @@ def test_collapse_newline():
     x.add_row('')
     x.add_row('')
     x.add_row('')
-    x.print() == ['', '']
+    assert x.print() == ['', '']
+
+def test_edit_row():
+    x = DapperTable()
+    x.add_row('row 1')
+    x.add_row('row 2')
+    x.add_row('row 3')
+    x.edit_row(1, 'row 2 updated')
+    assert x.print() == 'row 1\nrow 2 updated\nrow 3'
+
+    with pytest.raises(DapperTableException) as error:
+        x.edit_row(-1, 'foo')
+    assert 'Index must be positive number' in str(error.value)
+
+    with pytest.raises(DapperTableException) as error:
+        x.edit_row(100, 'foo')
+    assert 'Invalid edit index given 100' in str(error.value)

@@ -121,6 +121,17 @@ class DapperTable():
             # Make sure we add a single space at the end
             self._separator = f'{header_options.separator.replace(" ", "")} '
 
+    def _validate_row(self, row: List[str] | str) -> bool:
+        '''
+        Validate row input
+        '''
+        if self._headers:
+            if not isinstance(row, list):
+                raise DapperTableException('Row input must be list if headers were given')
+            if len(row) != len(self._headers):
+                raise DapperTableException('Row length must match length of headers')
+        return True
+
     def add_row(self, row: List[str] | str) -> bool:
         '''
         Add row to table
@@ -128,13 +139,27 @@ class DapperTable():
         row     :   List of items to go in row, assumes each item list is string representation
         '''
         # If headers, add extra checks, else just accept input
-        if self._headers:
-            if not isinstance(row, list):
-                raise DapperTableException('Row input must be list if headers were given')
-            if len(row) != len(self._headers):
-                raise DapperTableException('Row length must match length of headers')
+        self._validate_row(row)
         self._rows.append(row)
         return True
+
+    def edit_row(self, index: int, row: List[str] | str) -> bool:
+        '''
+        Edit row contents
+        
+        index   :   Index of row to update
+        row     :   List of items to go in row, assumes each item list is string representation
+        '''
+        if index < 0:
+            raise DapperTableException('Index must be positive number')
+        try:
+            _current_value = self._rows[int(index)]
+        except IndexError as exc:
+            raise DapperTableException(f'Invalid edit index given {index}') from exc
+        self._validate_row(row)
+        self._rows[int(index)] = row
+        return True
+
 
     def remove_row(self, index: int) -> bool:
         '''
