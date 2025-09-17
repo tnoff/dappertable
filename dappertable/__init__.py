@@ -2,6 +2,7 @@
 Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 Use these functions to get proper length of strings for formatting with east asian characters
 '''
+from re import sub
 from typing import List
 from unicodedata import east_asian_width
 
@@ -97,15 +98,17 @@ class DapperTable():
     Split large inputs into smaller messages, also supports formatting
     '''
     def __init__(self, header_options : DapperTableHeaderOptions = None,
-                 rows_per_message: int = None):
+                 rows_per_message: int = None, collapse_newlines: bool = True):
         '''
         Init a dapper table
 
         headerOptions       :   DapperTable header options, if not given will treat as raw input
         rows_per_message    :   Split table by this number of rows to different messages
+        collapse_newlines   :   Collapse multiple newlines in messages
         '''
 
         self._rows_per_message = rows_per_message
+        self.collapse_newlines = collapse_newlines
         if rows_per_message and rows_per_message < 1:
             raise DapperTableException('Invalid value for rows per message')
         self._rows = []
@@ -188,6 +191,17 @@ class DapperTable():
             output += [row]
         return output
 
+    def _format_final_print(self, row_output: List[str]) -> str:
+        '''
+        If set, remove double newlines and clean up output
+        '''
+        combined = '\n'.join(i for i in row_output)
+        if not self.collapse_newlines:
+            return combined
+        combined = sub(r'\n{2,}', '\n', combined)
+        combined = combined.strip('\n')
+        return combined
+
     def print(self) -> List[str] | str:
         '''
         Print table
@@ -198,12 +212,12 @@ class DapperTable():
             all_output += self._generate_headers()
         all_output += self._format_rows()
         if not self._rows_per_message:
-            return '\n'.join(i for i in all_output)
+            return self._format_final_print(all_output)
         # Split rows if necessary
         split_rows = chunk_list(all_output, self._rows_per_message)
         split_output = []
         for sr in split_rows:
-            split_output.append('\n'.join(i for i in sr))
+            split_output.append(self._format_final_print(sr))
         return split_output
 
     @property
