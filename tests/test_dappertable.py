@@ -153,3 +153,28 @@ def test_invalid_row_add():
     with pytest.raises(DapperTableException) as error:
         x.add_row('foo')
         assert 'Row input must be list if headers were given' in str(error.value)
+
+def test_collapse_newline():
+    x = DapperTable()
+    x.add_row('')
+    x.add_row('')
+    x.add_row('')
+    assert x.print() == ''
+
+    x.add_row('foo')
+    x.add_row('')
+    x.add_row('')
+    x.add_row('bar')
+    assert x.print() == 'foo\nbar'
+
+    x = DapperTable(collapse_newlines=False)
+    x.add_row('')
+    x.add_row('')
+    assert x.print() == '\n'
+
+    x = DapperTable(rows_per_message=2)
+    x.add_row('')
+    x.add_row('')
+    x.add_row('')
+    x.add_row('')
+    x.print() == ['', '']

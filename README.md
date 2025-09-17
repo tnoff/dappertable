@@ -65,3 +65,7 @@ True
 >>> t.print()
 ['pos|| name\n----------------', '1  || foo\n2  || example', '3  || bar']
 ```
+
+## Collapse Newlines
+
+By default `collapse_newlines` is set to True, this removes double newlines (`\n\n`) from outputs.

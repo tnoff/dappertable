@@ -4,3 +4,4 @@ build/
 htmlcov/
 .tox/
 .coverage
+CLAUDE.md
