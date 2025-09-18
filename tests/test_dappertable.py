@@ -194,3 +194,15 @@ def test_edit_row():
     with pytest.raises(DapperTableException) as error:
         x.edit_row(100, 'foo')
     assert 'Invalid edit index given 100' in str(error.value)
+
+def test_leading_zeros():
+    headers = [
+        DapperTableHeader('pos', 3, zero_pad_index=True),
+        DapperTableHeader('name', 4)
+    ]
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers))
+    for count in range(11):
+        x.add_row([count, 'foobar'])
+
+    print(x.print())
+    assert '00 ||' in x.print()

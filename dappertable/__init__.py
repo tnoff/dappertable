@@ -70,12 +70,17 @@ class DapperTableHeader():
     '''
     Basic header type
     '''
-    def __init__(self, name: str, length: int):
+    def __init__(self, name: str, length: int, zero_pad_index: bool = False):
         '''
         Set basic variables
+
+        name    :   Name for header
+        length  :   Max length of content, otherwise will shorten
+        zero_pad_index  :   Pad zeros in front of index column if applicable
         '''
         self.name = name
         self.length = length
+        self.zero_pad_index = zero_pad_index
 
 class DapperTableHeaderOptions():
     '''
@@ -195,8 +200,13 @@ class DapperTable():
         '''
         Format row content to headers
         '''
+        total_size = len(self._rows)
         col_items = []
         for (count, item) in enumerate(row):
+            if self._headers[count].zero_pad_index:
+                total_digits = len(str(total_size))
+                column_size = len(str(item))
+                item = f'{"0" * (total_digits - column_size)}{item}'
             col_string = shorten_string_cjk(item, self._headers[count].length)
             col_length = format_string_length(col_string, self._headers[count].length)
             col_items.append(f'{col_string:{col_length}}')
