@@ -66,6 +66,21 @@ True
 ['pos|| name\n----------------', '1  || foo\n2  || example', '3  || bar']
 ```
 
+### Zero Padding
+
+The headers have an `zero_pad_index` option to format index like column options to include leading 0s to make the output look a bit cleaner. Take the following example:
+
+```
+>>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions
+>>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3, zero_pad_index=True), DapperTableHeader('name', 10)]))
+>>> for count in range(15):
+...     t.add_row([count, 'foo'])
+... 
+>>> t.print()
+'pos|| name\n----------------\n00 || foo\n01 || foo\n02 || foo\n03 || foo\n04 || foo\n05 || foo\n06 || foo\n07 || foo\n08 || foo\n09 || foo\n10 || foo\n11 || foo\n12 || foo\n13 || foo\n14 || foo'
+
+```
+
 ## Collapse Newlines
 
 By default `collapse_newlines` is set to True, this removes double newlines (`\n\n`) from outputs.
