@@ -2,6 +2,7 @@ import pytest
 
 from dappertable import shorten_string_cjk, format_string_length
 from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, DapperTableException
+from dappertable import PaginationRows, PaginationLength
 
 def test_shorten_string_cjk():
     input = 'Some string 123 other text'
@@ -56,7 +57,7 @@ def test_dapper_table_rows():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), pagination_options=PaginationRows(2))
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -68,30 +69,62 @@ def test_dapper_table_length():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), pagination_options=PaginationRows(2))
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
     result = x.size
     assert result == 3
 
+
+def test_dapper_table_split_length():
+    x = DapperTable(pagination_options=PaginationLength(10))
+    x.add_row('1234')
+    x.add_row('1234')
+    x.add_row('1234')
+    assert x.print() == ['1234\n1234', '1234']
+
+    x = DapperTable(pagination_options=PaginationLength(10))
+    x.add_row('123456789')
+    x.add_row('123456789')
+    x.add_row('123456789')
+    assert x.print() == ['123456789', '123456789', '123456789']
+
+    x = DapperTable(pagination_options=PaginationLength(10))
+    x.add_row('1234')
+    x.add_row('1234')
+    x.add_row('1234')
+    x.add_row('123456789')
+    assert x.print() == ['1234\n1234', '1234', '123456789']
+
+
+def test_dapper_table_split_length_invalid_input():
+    x = DapperTable(pagination_options=PaginationLength(10))
+    x.add_row('1234789012345')
+    with pytest.raises(DapperTableException) as error:
+        x.print()
+    assert 'Length of input "1234789012345" is greater than iteration max length 10' in str(error.value)
+    with pytest.raises(DapperTableException) as error:
+        DapperTable(pagination_options=PaginationLength(-5))
+    assert 'Invalid value for length per message: -5' in str(error.value)
+
 def test_dapper_table_no_headers_no_rows():
     with pytest.raises(DapperTableException) as error:
         DapperTable(header_options=DapperTableHeaderOptions([]))
-        assert 'Must have at least one header' in str(error.value)
+    assert 'Must have at least one header' in str(error.value)
     with pytest.raises(DapperTableException) as invalid_error:
-        DapperTable(header_options=DapperTableHeaderOptions(DapperTableHeader('name', 5)), rows_per_message=-1)
-        assert 'Invalid value for rows per message' in str(invalid_error.value)
+        DapperTable(header_options=DapperTableHeaderOptions(DapperTableHeader('name', 5)), pagination_options=PaginationRows(-1))
+    assert 'Invalid value for rows per message: -1' in str(invalid_error.value)
     with pytest.raises(DapperTableException) as invalid_row:
         DapperTableHeaderOptions('foo')
-        assert 'Header must be DapperTableHeader object' in str(invalid_row.value)
+    assert 'Header must be DapperTableHeader object' in str(invalid_row.value)
 
 def test_add_invalid_row():
     headers = [
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4),
     ]
-    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), pagination_options=PaginationRows(2))
     with pytest.raises(DapperTableException) as error:
         x.add_row(['foo'])
         assert 'Row length must match length of headers' in str(error.value)
@@ -101,7 +134,7 @@ def test_delete_row():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4)
     ]
-    x = DapperTable(header_options=DapperTableHeaderOptions(headers), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), pagination_options=PaginationRows(2))
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -119,7 +152,7 @@ def test_separator_override():
         DapperTableHeader('pos', 3),
         DapperTableHeader('name', 4)
     ]
-    x = DapperTable(header_options=DapperTableHeaderOptions(headers, separator='+'), rows_per_message=2)
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers, separator='+'), pagination_options=PaginationRows(2))
     x.add_row(['1', 'a'])
     x.add_row(['2', 'b'])
     x.add_row(['3', 'c'])
@@ -140,7 +173,7 @@ def test_no_headers_basic():
     assert x.print() == 'more stuff here'
 
 def test_no_headers_with_messages_per_set():
-    x = DapperTable(rows_per_message=2)
+    x = DapperTable(pagination_options=PaginationRows(2))
     x.add_row('foo bar stuff')
     x.add_row('more stuff here')
     x.add_row('another row just for fun')
@@ -172,7 +205,7 @@ def test_collapse_newline():
     x.add_row('')
     assert x.print() == '\n'
 
-    x = DapperTable(rows_per_message=2)
+    x = DapperTable(pagination_options=PaginationRows(2))
     x.add_row('')
     x.add_row('')
     x.add_row('')

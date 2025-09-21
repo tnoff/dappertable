@@ -9,3 +9,6 @@ DapperTableHeader
 init
 nsecond
 nthird
+PaginationRows
+PaginationLength
+params
