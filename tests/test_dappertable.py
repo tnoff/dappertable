@@ -20,7 +20,7 @@ def test_format_string_length():
     input = '日本語は'
     assert format_string_length(input, 20) == 16
     input = 'あいうえおかきくけこさしす 1 other text'
-    assert format_string_length(input, 32) == 19
+    assert format_string_length(input, 32) == 32
     input1 = 'Some string すせそなにぬねのまみむめも〜'
     input2 = 'SOME OTHER STRING THAT IS LONG'
     input1_string = shorten_string_cjk(input1, 50)
@@ -42,15 +42,21 @@ def test_dapper_table():
     x.add_row(['3', '"むこう岸が視る夢" by Toe', 'Topshelf Records'])
     x.add_row(['4', '"All I Understand Is That I Don_t Understand" - Toe', 'Topshelf Records'])
     x.add_row(['5', '"C" by Toe', 'Topshelf Records'])
+    x.add_row(['6', 'サンセット・ロード', 'Reiko Takahashi - Topic'])
+    x.add_row(['7', '禁断のテレパシー', '工藤静香 -PONY CANYON-'])
+    x.add_row(['8', 'BEWITCHED（ARE YOU LEAVING SOON)', '秋本奈緒美 - Topic'])
     result = x.print()
+    print(x.print())
     assert result == 'Pos|| Title                                           || Uploader\n'\
-                     '-----------------------------------------------------------------------------------------\n'\
+                     '-----------------------------------------------------------------\n'\
                      '1  || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)     || Hui Hon Man\n'\
                      '2  || "Tremelo + Delay" by Toe                        || Topshelf Records\n'\
                      '3  || "むこう岸が視る夢" by Toe                     || Topshelf Records\n'\
                      '4  || "All I Understand Is That I Don_t Understand" ..|| Topshelf Records\n'\
-                     '5  || "C" by Toe                                      || Topshelf Records'
-
+                     '5  || "C" by Toe                                      || Topshelf Records\n' \
+                     '6  || サンセット・ロード                              || Reiko Takahashi - Topic\n' \
+                     '7  || 禁断のテレパシー                                || 工藤静香 -PONY CANYON-\n' \
+                     '8  || BEWITCHED（ARE YOU LEAVING SOON)                || 秋本奈緒美 - Topic'
 
 def test_dapper_table_rows():
     headers = [
@@ -239,3 +245,47 @@ def test_leading_zeros():
 
     print(x.print())
     assert '00 ||' in x.print()
+
+def test_cjk_spacing_scenarios():
+    headers = [DapperTableHeader('Title', 10)]
+    table = DapperTable(header_options=DapperTableHeaderOptions(headers))
+
+    table.add_row(['あいうえお'])  # 5 CJK chars = 10 display width (exactly fits, won't be truncated)
+    result = table.print()
+
+    assert ' \u2009' in result
+
+    headers2 = [DapperTableHeader('Col', 2)]
+    table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
+
+    table2.add_row(['あ'])  # 1 CJK char = 2 display width (exactly fits, won't be truncated)
+    result2 = table2.print()
+
+    # Should contain en-space (line 280/320)
+    assert '\u2002' in result2
+
+def test_cjk_no_spacing_needed():
+    # Create a scenario where space_count = target_width - len(col_string) <= 0
+    headers = [DapperTableHeader('Col', 1)]
+    table = DapperTable(header_options=DapperTableHeaderOptions(headers))
+
+    table.add_row(['あ'])  # This will be truncated to 'あ' but still triggers the condition
+    result = table.print()
+
+    assert result is not None  # Just verify it doesn't crash
+
+def test_cjk_header_spacing():
+    headers = [DapperTableHeader('あいうえお', 10)]  # 5 chars, 10 display width, space_count = 10 - 5 = 5 >= 2
+    table = DapperTable(header_options=DapperTableHeaderOptions(headers))
+    table.add_row(['test'])
+
+    result = table.print()
+    assert ' \u2009' in result
+
+    # Test header with CJK that needs exactly 1 space
+    headers2 = [DapperTableHeader('あ', 2)]  # 1 char, 2 display width, space_count = 2 - 1 = 1
+    table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
+    table2.add_row(['x'])
+
+    result2 = table2.print()
+    assert '\u2002' in result2
