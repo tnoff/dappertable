@@ -2,6 +2,7 @@
 Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 Use these functions to get proper length of strings for formatting with east asian characters
 '''
+from enum import Enum
 from re import sub
 from typing import List
 from unicodedata import east_asian_width
@@ -54,12 +55,32 @@ def format_string_length(input_string: str, length: int) -> int:
 
 
 # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
-def chunk_list(input_list, size):
+def chunk_list(input_list: List[str], size: int) -> List[List[str]]:
     '''
     Split list into equal sized chunks
     '''
     size = max(1, size)
     return [input_list[i:i+size] for i in range(0, len(input_list), size)]
+
+def chunk_list_by_length(input_list: List[str], max_length: int) -> List[List[str]]:
+    '''
+    Split list by length
+    '''
+    new_rows = []
+    current_size = 0
+    current_rows = []
+
+    for current_item in input_list:
+        if len(current_item) > max_length:
+            raise DapperTableException(f'Length of input "{current_item}" is greater than iteration max length {max_length}')
+        if len(current_item) + current_size > max_length:
+            new_rows.append(current_rows)
+            current_rows = []
+            current_size = 0
+        current_rows.append(current_item)
+        current_size += len(current_item)
+    new_rows.append(current_rows)
+    return new_rows
 
 class DapperTableException(Exception):
     '''
@@ -98,25 +119,65 @@ class DapperTableHeaderOptions():
                 raise DapperTableException('Header must be DapperTableHeader object')
 
 
+class PaginationOptions(Enum):
+    '''
+    Default pagination options
+    '''
+    ROWS = 'rows'
+    LENGTH = 'length'
+
+class PaginationSetting():
+    '''
+    Pagination settings
+    '''
+    def __init__(self, pagination_type: PaginationOptions):
+        self.pagination_type = pagination_type
+
+class PaginationRows(PaginationSetting):
+    '''
+    Pagination By Rows
+    '''
+    def __init__(self, rows_per_message: int):
+        super().__init__(PaginationOptions.ROWS)
+        self.rows_per_message = rows_per_message
+
+class PaginationLength(PaginationSetting):
+    '''
+    Pagination By Length
+    '''
+    def __init__(self, length_per_message: int):
+        super().__init__(PaginationOptions.LENGTH)
+        self.length_per_message = length_per_message
+
+
 class DapperTable():
     '''
     Split large inputs into smaller messages, also supports formatting
     '''
     def __init__(self, header_options : DapperTableHeaderOptions = None,
-                 rows_per_message: int = None, collapse_newlines: bool = True):
+                 pagination_options: PaginationSetting = None, collapse_newlines: bool = True):
         '''
         Init a dapper table
 
         headerOptions       :   DapperTable header options, if not given will treat as raw input
-        rows_per_message    :   Split table by this number of rows to different messages
         collapse_newlines   :   Collapse multiple newlines in messages
         '''
 
-        self._rows_per_message = rows_per_message
+
         self.collapse_newlines = collapse_newlines
-        if rows_per_message and rows_per_message < 1:
-            raise DapperTableException('Invalid value for rows per message')
         self._rows = []
+
+        self._rows_per_message = None
+        self._length_per_message = None
+        if pagination_options:
+            if pagination_options.pagination_type == PaginationOptions.ROWS:
+                self._rows_per_message = pagination_options.rows_per_message
+                if pagination_options.rows_per_message and pagination_options.rows_per_message < 1:
+                    raise DapperTableException(f'Invalid value for rows per message: {pagination_options.rows_per_message}')
+            if pagination_options.pagination_type == PaginationOptions.LENGTH:
+                self._length_per_message = pagination_options.length_per_message
+                if pagination_options.length_per_message < 1:
+                    raise DapperTableException(f'Invalid value for length per message: {pagination_options.length_per_message}')
 
         self._headers = None
         self._separator = None
@@ -246,14 +307,20 @@ class DapperTable():
         if self._headers:
             all_output += self._generate_headers()
         all_output += self._format_rows()
-        if not self._rows_per_message:
-            return self._format_final_print(all_output)
-        # Split rows if necessary
-        split_rows = chunk_list(all_output, self._rows_per_message)
-        split_output = []
-        for sr in split_rows:
-            split_output.append(self._format_final_print(sr))
-        return split_output
+        # If no pagination options given
+        if self._rows_per_message or self._length_per_message:
+            split_rows = []
+            if self._rows_per_message:
+                split_rows = chunk_list(all_output, self._rows_per_message)
+            if self._length_per_message:
+                split_rows = chunk_list_by_length(all_output, self._length_per_message)
+            split_output = []
+            for sr in split_rows:
+                split_output.append(self._format_final_print(sr))
+            return split_output
+
+        # If no pagination options given
+        return self._format_final_print(all_output)
 
     @property
     def size(self) -> int:

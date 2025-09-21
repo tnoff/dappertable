@@ -19,21 +19,6 @@ True
 'first row\nsecond row'
 ```
 
-Use the `rows_per_message` option to return a list of strings instead, with each item in the list matching the max number or rows.
-
-```
->>> from dappertable import DapperTable
->>> x = DapperTable(rows_per_message=3)
->>> x.add_row('first row')
-True
->>> x.add_row('second row')
-True
->>> x.add_row('third row')
-True
->>> x.print()
-['first row\nsecond row\nthird row']
-```
-
 ## Header Formatting
 
 
@@ -44,27 +29,40 @@ Example:
 >>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions
 >>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 10)]))
 >>> t.add_row([1, 'foo'])
-True
 >>> t.add_row([2, 'example title'])
-True
 >>> t.print()
 'pos|| name\n----------------\n1  || foo\n2  || example ..'
 ```
 
-If you pass `rows_per_message` value into the initial table, this will split the table into a list of multiple strings. This is useful for clients sending requests via an API, so you can 'paginate' the table in a manner of speaking.
+## Pagination Options
+
+If you pass `pagination_options` you can setup output to return a list of strings that match the params.
+
+For example you can use `PaginationRows` with the `rows_per_message` value into the initial table, this will split the table into a list of multiple strings. This is useful for clients sending requests via an API, so you can 'paginate' the table in a manner of speaking.
 
 ```
->>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions
->>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 10)]), rows_per_message=2)
+>>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, PaginationRows
+>>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 10)]), pagination_options=PaginationRows(2))
 >>> t.add_row([1, 'foo'])
-True
 >>> t.add_row([2, 'example'])
-True
 >>> t.add_row([3, 'bar'])
-True
 >>> t.print()
 ['pos|| name\n----------------', '1  || foo\n2  || example', '3  || bar']
 ```
+
+You can also use `PaginationLength` to with the `length_per_message` value to split up the output into multiple strings where the max length of each string is this value.
+
+```
+>>> from dappertable import DapperTable, PaginationLength
+>>> t = DapperTable(pagination_options=PaginationLength(10))
+>>> t.add_row('12345')
+>>> t.add_row('12345')
+>>> t.add_row('12345')
+
+>>> t.print()
+['12345\n12345', '12345']
+```
+
 
 ### Zero Padding
 
