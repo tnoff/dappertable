@@ -247,18 +247,19 @@ def test_leading_zeros():
     assert '00 ||' in x.print()
 
 def test_cjk_spacing_scenarios():
-    headers = [DapperTableHeader('Title', 10)]
+    # Test with multi-column table so Unicode spacing is applied (not last column)
+    headers = [DapperTableHeader('Title', 10), DapperTableHeader('Extra', 5)]
     table = DapperTable(header_options=DapperTableHeaderOptions(headers))
 
-    table.add_row(['あいうえお'])  # 5 CJK chars = 10 display width (exactly fits, won't be truncated)
+    table.add_row(['あいうえお', 'test'])  # 5 CJK chars = 10 display width (exactly fits, won't be truncated)
     result = table.print()
 
     assert ' \u2009' in result
 
-    headers2 = [DapperTableHeader('Col', 2)]
+    headers2 = [DapperTableHeader('Col', 2), DapperTableHeader('Extra', 5)]
     table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
 
-    table2.add_row(['あ'])  # 1 CJK char = 2 display width (exactly fits, won't be truncated)
+    table2.add_row(['あ', 'test'])  # 1 CJK char = 2 display width (exactly fits, won't be truncated)
     result2 = table2.print()
 
     # Should contain en-space (line 280/320)
@@ -275,17 +276,32 @@ def test_cjk_no_spacing_needed():
     assert result is not None  # Just verify it doesn't crash
 
 def test_cjk_header_spacing():
-    headers = [DapperTableHeader('あいうえお', 10)]  # 5 chars, 10 display width, space_count = 10 - 5 = 5 >= 2
+    # Test with multi-column table so Unicode spacing is applied to headers (not last column)
+    headers = [DapperTableHeader('あいうえお', 10), DapperTableHeader('Extra', 5)]  # 5 chars, 10 display width, space_count = 10 - 5 = 5 >= 2
     table = DapperTable(header_options=DapperTableHeaderOptions(headers))
-    table.add_row(['test'])
+    table.add_row(['test', 'data'])
 
     result = table.print()
     assert ' \u2009' in result
 
     # Test header with CJK that needs exactly 1 space
-    headers2 = [DapperTableHeader('あ', 2)]  # 1 char, 2 display width, space_count = 2 - 1 = 1
+    headers2 = [DapperTableHeader('あ', 2), DapperTableHeader('Extra', 5)]  # 1 char, 2 display width, space_count = 2 - 1 = 1
     table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
-    table2.add_row(['x'])
+    table2.add_row(['x', 'data'])
 
     result2 = table2.print()
     assert '\u2002' in result2
+
+def test_last_column_no_unicode_spacing():
+    headers = [DapperTableHeader('Col1', 5), DapperTableHeader('LastCol', 10)]
+    table = DapperTable(header_options=DapperTableHeaderOptions(headers))
+
+    table.add_row(['test', 'あいうえお'])  # Last column has CJK that exactly fits
+    result = table.print()
+
+    lines = result.split('\n')
+    for line in lines:
+        if 'あいうえお' in line:
+            # The line should end with the CJK text, no Unicode spacing after it
+            assert line.endswith('あいうえお')
+            break
