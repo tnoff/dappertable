@@ -1,34 +1,36 @@
 import pytest
 
-from dappertable import shorten_string_cjk, format_string_length
+from dappertable import shorten_string, format_string_length, string_width
 from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, DapperTableException
 from dappertable import PaginationRows, PaginationLength
 
-def test_shorten_string_cjk():
+def test_shorten_string():
     input = 'Some string 123 other text'
-    assert shorten_string_cjk(input, 5) == 'Som..'
-    assert shorten_string_cjk(input, 50) == input
+    assert shorten_string(input, 5) == 'Som..'
+    assert shorten_string(input, 50) == input
     input = '日本語は'
-    assert shorten_string_cjk(input, 10) == input
-    assert shorten_string_cjk(input, 7) == '日本..'
+    assert shorten_string(input, 10) == input
+    assert shorten_string(input, 7) == '日本..'
     input = 'あいうえおかきくけこさしす 1 other text'
-    assert shorten_string_cjk(input, 36) == 'あいうえおかきくけこさしす 1 other..'
+    assert shorten_string(input, 36) == 'あいうえおかきくけこさしす 1 other..'
 
 def test_format_string_length():
     input = 'Some string 123 other text'
     assert format_string_length(input, 20) == 20
     input = '日本語は'
-    assert format_string_length(input, 20) == 16
+    # 4 CJK chars (W width) -> ceil(4/4) = 1 extra padding
+    assert format_string_length(input, 20) == 17
     input = 'あいうえおかきくけこさしす 1 other text'
     assert format_string_length(input, 32) == 32
     input1 = 'Some string すせそなにぬねのまみむめも〜'
     input2 = 'SOME OTHER STRING THAT IS LONG'
-    input1_string = shorten_string_cjk(input1, 50)
-    input2_string = shorten_string_cjk(input2, 50)
+    input1_string = shorten_string(input1, 50)
+    input2_string = shorten_string(input2, 50)
     input1_length = format_string_length(input1_string, 50)
     input2_length = format_string_length(input2_string, 50)
     new_string = f'||{input1_string:{input1_length}}||\n||{input2_string:{input2_length}}||'
-    assert new_string == '||Some string すせそなにぬねのまみむめも〜          ||\n||SOME OTHER STRING THAT IS LONG                    ||'
+    # input1 has 18 chars, 32 display width, 14 W chars -> ceil(14/4) = 4 extra padding
+    assert new_string == '||Some string すせそなにぬねのまみむめも〜              ||\n||SOME OTHER STRING THAT IS LONG                    ||'
 
 def test_dapper_table():
     headers = [
@@ -49,13 +51,13 @@ def test_dapper_table():
     print(x.print())
     assert result == 'Pos|| Title                                           || Uploader\n'\
                      '-----------------------------------------------------------------\n'\
-                     '1  || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)     || Hui Hon Man\n'\
+                     '1  || [HQ] toe - 孤独の発明 ( Kodoku No Hatsumei)       || Hui Hon Man\n'\
                      '2  || "Tremelo + Delay" by Toe                        || Topshelf Records\n'\
-                     '3  || "むこう岸が視る夢" by Toe                     || Topshelf Records\n'\
+                     '3  || "むこう岸が視る夢" by Toe                          || Topshelf Records\n'\
                      '4  || "All I Understand Is That I Don_t Understand" ..|| Topshelf Records\n'\
                      '5  || "C" by Toe                                      || Topshelf Records\n' \
-                     '6  || サンセット・ロード                              || Reiko Takahashi - Topic\n' \
-                     '7  || 禁断のテレパシー                                || 工藤静香 -PONY CANYON-\n' \
+                     '6  || サンセット・ロード                                 || Reiko Takahashi - Topic\n' \
+                     '7  || 禁断のテレパシー                                  || 工藤静香 -PONY CANYON-\n' \
                      '8  || BEWITCHED（ARE YOU LEAVING SOON)                || 秋本奈緒美 - Topic'
 
 def test_dapper_table_rows():
@@ -247,23 +249,26 @@ def test_leading_zeros():
     assert '00 ||' in x.print()
 
 def test_cjk_spacing_scenarios():
-    # Test with multi-column table so Unicode spacing is applied (not last column)
+    # Test with multi-column table with CJK content
     headers = [DapperTableHeader('Title', 10), DapperTableHeader('Extra', 5)]
     table = DapperTable(header_options=DapperTableHeaderOptions(headers))
 
-    table.add_row(['あいうえお', 'test'])  # 5 CJK chars = 10 display width (exactly fits, won't be truncated)
+    table.add_row(['あいうえお', 'test'])  # 5 CJK chars = 10 display width
     result = table.print()
 
-    assert ' \u2009' in result
+    # Just verify it renders without errors
+    assert 'あいうえお' in result
+    assert 'test' in result
 
     headers2 = [DapperTableHeader('Col', 2), DapperTableHeader('Extra', 5)]
     table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
 
-    table2.add_row(['あ', 'test'])  # 1 CJK char = 2 display width (exactly fits, won't be truncated)
+    table2.add_row(['あ', 'test'])  # 1 CJK char = 2 display width
     result2 = table2.print()
 
-    # Should contain en-space (line 280/320)
-    assert '\u2002' in result2
+    # Just verify it renders without errors
+    assert 'あ' in result2
+    assert 'test' in result2
 
 def test_cjk_no_spacing_needed():
     # Create a scenario where space_count = target_width - len(col_string) <= 0
@@ -276,21 +281,25 @@ def test_cjk_no_spacing_needed():
     assert result is not None  # Just verify it doesn't crash
 
 def test_cjk_header_spacing():
-    # Test with multi-column table so Unicode spacing is applied to headers (not last column)
-    headers = [DapperTableHeader('あいうえお', 10), DapperTableHeader('Extra', 5)]  # 5 chars, 10 display width, space_count = 10 - 5 = 5 >= 2
+    # Test with multi-column table with CJK headers
+    headers = [DapperTableHeader('あいうえお', 10), DapperTableHeader('Extra', 5)]
     table = DapperTable(header_options=DapperTableHeaderOptions(headers))
     table.add_row(['test', 'data'])
 
     result = table.print()
-    assert ' \u2009' in result
+    # Just verify it renders without errors
+    assert 'あいうえお' in result
+    assert 'test' in result
 
-    # Test header with CJK that needs exactly 1 space
-    headers2 = [DapperTableHeader('あ', 2), DapperTableHeader('Extra', 5)]  # 1 char, 2 display width, space_count = 2 - 1 = 1
+    # Test header with CJK character
+    headers2 = [DapperTableHeader('あ', 2), DapperTableHeader('Extra', 5)]
     table2 = DapperTable(header_options=DapperTableHeaderOptions(headers2))
     table2.add_row(['x', 'data'])
 
     result2 = table2.print()
-    assert '\u2002' in result2
+    # Just verify it renders without errors
+    assert 'あ' in result2
+    assert 'x' in result2
 
 def test_last_column_no_unicode_spacing():
     headers = [DapperTableHeader('Col1', 5), DapperTableHeader('LastCol', 10)]
@@ -305,3 +314,37 @@ def test_last_column_no_unicode_spacing():
             # The line should end with the CJK text, no Unicode spacing after it
             assert line.endswith('あいうえお')
             break
+
+def test_cjk_spacing_multi_column():
+    headers = [
+        DapperTableHeader('Pos', 3, zero_pad_index=True),
+        DapperTableHeader('Wait Time', 9),
+        DapperTableHeader('Title', 48),
+        DapperTableHeader('Uploader', 32),
+    ]
+    table = DapperTable(header_options=DapperTableHeaderOptions(headers))
+    table.add_row(['1', '4:53', 'Yours', 'Yuki Saito - Topic'])
+    table.add_row(['2', '10:59', '禁断のテレパシー', '工藤静香 -PONY CANYON-'])
+    table.add_row(['3', '14:46', '雨', 'Kei Ishiguro - Topic'])
+    table.add_row(['4', '2:28:12', 'サンセット・ロード', 'Reiko Takahashi - Topic'])
+    table.add_row(['5', '2:32:32', 'ファッシネイション', '岡崎舞子 - Topic'])
+    table.add_row(['6', '2:36:14', 'Crystal Night', '1986 OMEGA TRIBE - Topic'])
+
+    result = table.print()
+    assert result == 'Pos|| Wait Time|| Title                                           || Uploader\n'\
+                     '-----------------------------------------------------------------------------\n'\
+                     '1  || 4:53     || Yours                                           || Yuki Saito - Topic\n'\
+                     '2  || 10:59    || 禁断のテレパシー                                  || 工藤静香 -PONY CANYON-\n'\
+                     '3  || 14:46    || 雨                                               || Kei Ishiguro - Topic\n'\
+                     '4  || 2:28:12  || サンセット・ロード                                 || Reiko Takahashi - Topic\n'\
+                     '5  || 2:32:32  || ファッシネイション                                 || 岡崎舞子 - Topic\n'\
+                     '6  || 2:36:14  || Crystal Night                                   || 1986 OMEGA TRIBE - Topic'
+
+def test_wcwidth_fallback(mocker):
+    mocker.patch('dappertable.wcswidth', return_value=-1)
+    assert string_width('abcd') == 4
+    assert string_width('ファッシネイション') == 9
+
+    assert shorten_string('abcd', 10) == 'abcd'
+    assert shorten_string('ファッシネイション', 10) == 'ファッシネイション'
+    assert shorten_string('ファッシネイション', 5) == 'ファッシネイ..'

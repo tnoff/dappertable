@@ -12,3 +12,4 @@ nthird
 PaginationRows
 PaginationLength
 params
+wcwidth

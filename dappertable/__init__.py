@@ -1,60 +1,70 @@
 '''
 Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
-Use these functions to get proper length of strings for formatting with east asian characters
+Use these functions to get proper length of strings for formatting with wide characters
 '''
 from enum import Enum
+from math import ceil
 from re import sub
 from typing import List
 from unicodedata import east_asian_width
+from wcwidth import wcswidth
 
-THIN_SPACE_UNICODE = '\u2009'
-EN_SPACE_UNICODE = '\u2002'
-
-def shorten_string_cjk(intput_string: str, width: int, placeholder: str = '..') -> str:
+def shorten_string(intput_string: str, width: int, placeholder: str = '..') -> str:
     '''
-    Shorten a string with CJK (double byte) characters
+    Shorten a string with wide characters (e.g. East Asian characters)
 
     intput_string (string): input string to shorten
     width (int): character count to shorten too
     placeholder (str, optional): cut of end characters if space is there. Defaults to '..'.
     '''
-    # get the length with double byte charactes
-    string_len_cjk = string_length_cjk(str(intput_string))
-    # if double byte width is too big
-    if string_len_cjk > width:
+    # get the display width using wcwidth
+    string_display_width = string_width(str(intput_string))
+    # if display width is too big
+    if string_display_width > width:
         # set current length and output string
-        cur_len = 0
         out_string = ''
         # loop through each character
         for char in str(intput_string):
-            # set the current length if we add the character
-            cur_len += 2 if east_asian_width(char) in "WF" else 1
+            # Calculate what the width would be if we add this character
+            new_string = out_string + char
+            new_string_width = wcswidth(new_string)
+            # Handle non-printable characters - fall back to basic length
+            if new_string_width == -1:
+                new_string_width = len(new_string)
+
             # if the new length is smaller than the output length to shorten too add the char
-            if cur_len <= (width - len(placeholder)):
+            if new_string_width <= (width - wcswidth(placeholder)):
                 out_string += char
+            else:
+                break
         # return string with new width and placeholder
         return f"{out_string}{placeholder}"
     return str(intput_string)
 
-def string_length_cjk(input_string: str) -> int:
+def string_width(input_string: str) -> int:
     '''
-    String lenth for a CJK (double byte) string
+    Get display width of a string (accounts for wide characters)
 
-    string (string): string to get length for
+    string (string): string to get display width for
     '''
-    # return string len including double count for double width characters
-    return sum(1 + (east_asian_width(c) in "WF") for c in input_string)
+    # Use wcwidth library for accurate display width calculation
+    width = wcswidth(input_string)
+    # wcswidth returns -1 if string contains non-printable characters
+    # Fall back to basic string length in that case
+    if width == -1:
+        return len(input_string)
+    return width
 
 def format_string_length(input_string: str, length: int) -> int:
     '''
-    Returns length updated for string with double byte characters
+    Returns length updated for string with wide characters
     Calculate the padding width needed to achieve the desired display width
-    when using Python's string formatting with CJK characters
+    when using Python's string formatting with wide characters (e.g. East Asian)
 
     input_string (string): string to calculate length of
     length (int): desired display width for string
     '''
-    display_width = string_length_cjk(input_string)
+    display_width = string_width(input_string)
     char_count = len(input_string)
 
     # For proper separator alignment, we need consistent format widths
@@ -64,8 +74,15 @@ def format_string_length(input_string: str, length: int) -> int:
         return length
 
     # For strings shorter than target, calculate the needed padding
+    # Count actual wide East Asian characters (excluding fullwidth ASCII like ＂)
+    # to determine adjustment needed for terminals that don't render wide chars correctly
     needed_padding = length - display_width
-    return char_count + needed_padding
+
+    # Count only true wide characters (W width), not fullwidth ASCII variants (F width)
+    true_wide_count = sum(1 for c in input_string if east_asian_width(c) == 'W')
+    adjusted_padding = needed_padding + (ceil(true_wide_count / 4))
+
+    return char_count + adjusted_padding
 
 
 # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
@@ -85,14 +102,14 @@ def chunk_list_by_length(input_list: List[str], max_length: int) -> List[List[st
     current_rows = []
 
     for current_item in input_list:
-        if string_length_cjk(current_item) > max_length:
+        if string_width(current_item) > max_length:
             raise DapperTableException(f'Length of input "{current_item}" is greater than iteration max length {max_length}')
-        if string_length_cjk(current_item) + current_size > max_length:
+        if string_width(current_item) + current_size > max_length:
             new_rows.append(current_rows)
             current_rows = []
             current_size = 0
         current_rows.append(current_item)
-        current_size += string_length_cjk(current_item)
+        current_size += string_width(current_item)
     new_rows.append(current_rows)
     return new_rows
 
@@ -176,8 +193,6 @@ class DapperTable():
         headerOptions       :   DapperTable header options, if not given will treat as raw input
         collapse_newlines   :   Collapse multiple newlines in messages
         '''
-
-
         self.collapse_newlines = collapse_newlines
         self._rows = []
 
@@ -257,7 +272,7 @@ class DapperTable():
         '''
         Generate a properly formatted string with appropriate spacing for CJK characters.
         '''
-        if string_length_cjk(col_string) < target_width:
+        if string_width(col_string) < target_width:
             col_length = format_string_length(col_string, target_width)
             return f'{col_string:{col_length}}'
         # If last column, don't add spacing to save space
@@ -266,13 +281,7 @@ class DapperTable():
 
         # Use one regular space plus thin spaces for better readability
         space_count = target_width - len(col_string)
-        if space_count > 0:
-            if space_count >= 2:
-                # Use one regular space + thin spaces for good separation
-                return col_string + ' ' + THIN_SPACE_UNICODE * (space_count - 1)
-            # Use en-space for better separation than thin space
-            return col_string + EN_SPACE_UNICODE * space_count
-        return col_string
+        return col_string + ' ' * space_count
 
     def _generate_headers(self) -> List[str]:
         '''
@@ -281,14 +290,14 @@ class DapperTable():
         col_items = []
         # Setup headers as first row
         for i, col in enumerate(self._headers):
-            col_string = shorten_string_cjk(col.name, col.length)
+            col_string = shorten_string(col.name, col.length)
             is_last_column = i == len(self._headers) - 1
             formatted_col = self._generate_formatted_string(col.length, col_string, is_last_column)
             col_items.append(formatted_col)
         row_string = self._separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
         # Calculate total length based on actual display width
-        total_length = string_length_cjk(row_string)
+        total_length = string_width(row_string)
         # First row and then table formatter
         return [row_string, '-' * total_length]
 
@@ -303,7 +312,7 @@ class DapperTable():
                 total_digits = len(str(total_size))
                 column_size = len(str(item))
                 item = f'{"0" * (total_digits - column_size)}{item}'
-            col_string = shorten_string_cjk(item, self._headers[count].length)
+            col_string = shorten_string(item, self._headers[count].length)
             is_last_column = count == len(self._headers) - 1
             formatted_col = self._generate_formatted_string(self._headers[count].length, col_string, is_last_column)
             col_items.append(formatted_col)
