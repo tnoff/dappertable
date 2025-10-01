@@ -7,6 +7,9 @@ from re import sub
 from typing import List
 from unicodedata import east_asian_width
 
+THIN_SPACE_UNICODE = '\u2009'
+EN_SPACE_UNICODE = '\u2002'
+
 def shorten_string_cjk(intput_string: str, width: int, placeholder: str = '..') -> str:
     '''
     Shorten a string with CJK (double byte) characters
@@ -250,38 +253,14 @@ class DapperTable():
             raise DapperTableException('Invalid deletion index') from exc
         return True
 
-    def _generate_formatted_string(self, display_width: int, target_width: int, col_string: str, col_length: int, is_last_column: bool = False) -> str:
+    def _generate_formatted_string(self, target_width: int, col_string: str, is_last_column: bool = False) -> str:
         '''
         Generate a properly formatted string with appropriate spacing for CJK characters.
-
-        This method handles the visual formatting of column content, ensuring proper
-        alignment while accounting for the display width differences between CJK
-        (double-width) and ASCII (single-width) characters.
-
-        Args:
-            display_width (int): The visual display width of the string in character positions
-            target_width (int): The desired column width for alignment
-            col_string (str): The string content to format
-            col_length (int): The calculated format length
-            is_last_column (bool): Whether this is the last column (skips Unicode spacing)
-
-        Returns:
-            str: A formatted string with appropriate spacing for table alignment.
-                 - For strings shorter than target width: uses regular space padding
-                 - For CJK strings meeting/exceeding target width: uses mixed spacing
-                   (regular space + thin spaces for multiple spaces, en-space for single space)
-                 - For strings that exactly fit: returns as-is
-
-        Note:
-            This method implements a hybrid spacing approach to balance visual
-            appearance with separator alignment in tables containing CJK text.
         '''
-        if display_width < target_width:
-            # Use regular space padding for normal formatting
+        if string_length_cjk(col_string) < target_width:
             col_length = format_string_length(col_string, target_width)
             return f'{col_string:{col_length}}'
-        # For CJK text that meets/exceeds width, add spacing for visual separation
-        # Skip Unicode spacing for the last column to avoid trailing characters
+        # If last column, don't add spacing to save space
         if is_last_column:
             return col_string
 
@@ -290,9 +269,9 @@ class DapperTable():
         if space_count > 0:
             if space_count >= 2:
                 # Use one regular space + thin spaces for good separation
-                return col_string + ' ' + '\u2009' * (space_count - 1)
+                return col_string + ' ' + THIN_SPACE_UNICODE * (space_count - 1)
             # Use en-space for better separation than thin space
-            return col_string + '\u2002' * space_count
+            return col_string + EN_SPACE_UNICODE * space_count
         return col_string
 
     def _generate_headers(self) -> List[str]:
@@ -303,13 +282,8 @@ class DapperTable():
         # Setup headers as first row
         for i, col in enumerate(self._headers):
             col_string = shorten_string_cjk(col.name, col.length)
-
-            # Use improved spacing for better visual separation with CJK text
-            display_width = string_length_cjk(col_string)
-            target_width = col.length
             is_last_column = i == len(self._headers) - 1
-
-            formatted_col = self._generate_formatted_string(display_width, target_width, col_string, col.length, is_last_column)
+            formatted_col = self._generate_formatted_string(col.length, col_string, is_last_column)
             col_items.append(formatted_col)
         row_string = self._separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
@@ -330,12 +304,8 @@ class DapperTable():
                 column_size = len(str(item))
                 item = f'{"0" * (total_digits - column_size)}{item}'
             col_string = shorten_string_cjk(item, self._headers[count].length)
-
-            # Use improved spacing for better visual separation with CJK text
-            display_width = string_length_cjk(col_string)
-            target_width = self._headers[count].length
             is_last_column = count == len(self._headers) - 1
-            formatted_col = self._generate_formatted_string(display_width, target_width, col_string, self._headers[count].length, is_last_column)
+            formatted_col = self._generate_formatted_string(self._headers[count].length, col_string, is_last_column)
             col_items.append(formatted_col)
         row_string = self._separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
