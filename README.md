@@ -2,7 +2,7 @@
 
 Similar to [prettytable](https://pypi.org/project/prettytable/), print formatted tables in python using f-string. Tables can be split into a list of strings if requested, which is useful when sending messages via 3rd party libraries that limit messages on length of a string.
 
-Handles East Asian languages that have double spaced characters. Most of the logic taken from: https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
+Handles wide characters (including East Asian languages that have double-width spacing) using the [wcwidth](https://pypi.org/project/wcwidth/) library for accurate display width calculations. Initial logic inspired by: [this @gullevek post](https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3)
 
 ## Basic Usage
 
