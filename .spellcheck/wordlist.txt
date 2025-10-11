@@ -13,3 +13,4 @@ PaginationRows
 PaginationLength
 params
 wcwidth
+unformatted

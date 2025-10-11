@@ -1,7 +1,7 @@
 import pytest
 
 from dappertable import shorten_string, format_string_length, string_width
-from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, DapperTableException
+from dappertable import DapperRow, DapperTable, DapperTableHeader, DapperTableHeaderOptions, DapperTableException
 from dappertable import PaginationRows, PaginationLength
 
 def test_shorten_string():
@@ -236,10 +236,20 @@ def test_edit_row():
         x.edit_row(100, 'foo')
     assert 'Invalid edit index given 100' in str(error.value)
 
+    headers = [
+        DapperTableHeader('pos', 3),
+        DapperTableHeader('name', 4),
+    ]
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers))
+    x.add_row(['1', 'foo'])
+    x.add_row(['2', 'bar'])
+    x.edit_row(1, ['2', 'foo2'])
+    assert x.print() == 'pos|| name\n----------\n1  || foo\n2  || foo2'
+
 def test_leading_zeros():
     headers = [
         DapperTableHeader('pos', 3, zero_pad_index=True),
-        DapperTableHeader('name', 4)
+        DapperTableHeader('name', 5)
     ]
     x = DapperTable(header_options=DapperTableHeaderOptions(headers))
     for count in range(11):
@@ -247,6 +257,7 @@ def test_leading_zeros():
 
     print(x.print())
     assert '00 ||' in x.print()
+    assert '10 ||' in x.print()
 
 def test_cjk_spacing_scenarios():
     # Test with multi-column table with CJK content
@@ -348,3 +359,29 @@ def test_wcwidth_fallback(mocker):
     assert shorten_string('abcd', 10) == 'abcd'
     assert shorten_string('ファッシネイション', 10) == 'ファッシネイション'
     assert shorten_string('ファッシネイション', 5) == 'ファッシネイ..'
+
+def test_get_paginated_rows():
+    table = DapperTable()
+    table.add_row('foo bar foo')
+    assert table.get_paginated_rows() == [DapperRow('foo bar foo', 'foo bar foo')]
+
+def test_print_rows():
+    headers = [
+        DapperTableHeader('pos', 3, zero_pad_index=True),
+        DapperTableHeader('name', 15)
+    ]
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers), pagination_options=PaginationLength(25))
+    for count in range(3):
+        x.add_row([count, f'foo{count}'])
+    
+    row_splits = x.get_paginated_rows()
+    assert x.print_rows(row_splits[0]) == 'pos|| name\n----------'
+    assert x.print_rows(row_splits[1]) == '0  || foo0\n1  || foo1'
+    assert x.print_rows(row_splits[2]) == '2  || foo2'
+    row_splits[1][0].edit('')
+    assert x.print_rows(row_splits[1]) == '1  || foo1'
+
+def test_dapper_row():
+    x = DapperRow('foo', 'foo')
+    assert len(x) == 3
+    assert x[0] == 'f'

@@ -19,7 +19,7 @@ True
 'first row\nsecond row'
 ```
 
-## Header Formatting
+### Header Formatting
 
 
 Similar to pretty table, set headers first and then add each individual row. The `DapperTableHeader` object will set the top header row and the max length of each column. If an column in a row later on is added with a length greater than the one in the column, it will be shortened with a `...` suffix added.
@@ -34,7 +34,7 @@ Example:
 'pos|| name\n----------------\n1  || foo\n2  || example ..'
 ```
 
-## Pagination Options
+### Pagination Options
 
 If you pass `pagination_options` you can setup output to return a list of strings that match the params.
 
@@ -79,6 +79,14 @@ The headers have an `zero_pad_index` option to format index like column options 
 
 ```
 
-## Collapse Newlines
+### Collapse Newlines
 
 By default `collapse_newlines` is set to True, this removes double newlines (`\n\n`) from outputs.
+
+## Advanced Usage
+
+You can also request a list of rows from after pagination processing and use methods to print these directly. This is if you want to get the pagination for some 'locked' input and edit the `DapperRow` instances themselves.
+
+You can use `get_paginated_rows` to get a List of `DapperRow` objects which contain the formatted or unformatted strings (depending on header inputs), and then pass this data into `print_rows` to get the list of outputs.
+
+If you want you can edit the `DapperRow` object directly with `.edit()` to directly modify input if you want to skip some formatting options.
