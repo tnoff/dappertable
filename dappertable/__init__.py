@@ -2,6 +2,7 @@
 Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 Use these functions to get proper length of strings for formatting with wide characters
 '''
+from dataclasses import dataclass, field
 from enum import Enum
 from math import ceil
 from re import sub
@@ -14,31 +15,26 @@ class DapperTableException(Exception):
     Generic exception class
     '''
 
-class DapperTableHeader():
+@dataclass
+class DapperTableHeader:
     '''
     Basic header type
     '''
-    def __init__(self, name: str, length: int, zero_pad_index: bool = False):
-        '''
-        Set basic variables
+    name: str
+    length: int
+    zero_pad_index: bool = False
 
-        name    :   Name for header
-        length  :   Max length of content, otherwise will shorten
-        zero_pad_index  :   Pad zeros in front of index column if applicable
-        '''
-        self.name = name
-        self.length = length
-        self.zero_pad_index = zero_pad_index
-
-class DapperTableHeaderOptions():
+@dataclass
+class DapperTableHeaderOptions:
     '''
     Combined Header Options
     '''
-    def __init__(self, headers: List[DapperTableHeader], separator='||'):
-        self.headers = headers
-        self.separator = separator
-        if isinstance(headers, DapperTableHeader):
-            self.headers = [headers]
+    headers: List[DapperTableHeader] | DapperTableHeader
+    separator: str = '||'
+
+    def __post_init__(self):
+        if isinstance(self.headers, DapperTableHeader):
+            self.headers = [self.headers]
         if not self.headers:
             raise DapperTableException('Must have at least one header')
         for header in self.headers:
@@ -53,41 +49,38 @@ class PaginationOptions(Enum):
     ROWS = 'rows'
     LENGTH = 'length'
 
-class PaginationSetting():
+@dataclass
+class PaginationSetting:
     '''
     Pagination settings
     '''
-    def __init__(self, pagination_type: PaginationOptions):
-        self.pagination_type = pagination_type
+    pagination_type: PaginationOptions
 
+@dataclass
 class PaginationRows(PaginationSetting):
     '''
     Pagination By Rows
     '''
-    def __init__(self, rows_per_message: int):
-        super().__init__(PaginationOptions.ROWS)
-        self.rows_per_message = rows_per_message
+    rows_per_message: int
+    pagination_type: PaginationOptions = field(default=PaginationOptions.ROWS, init=False)
 
+@dataclass
 class PaginationLength(PaginationSetting):
     '''
     Pagination By Length
     '''
-    def __init__(self, length_per_message: int):
-        super().__init__(PaginationOptions.LENGTH)
-        self.length_per_message = length_per_message
+    length_per_message: int
+    pagination_type: PaginationOptions = field(default=PaginationOptions.LENGTH, init=False)
 
 
-class DapperRow():
+@dataclass
+class DapperRow:
     '''
     Instance of a row in a table
     '''
-    def __init__(self, content: str, input_values: List[str] | str, zero_padding_value=None):
-        '''
-        Create a new row
-        '''
-        self.content = content
-        self.input_values = input_values
-        self.zero_padding_value = zero_padding_value
+    content: str
+    input_values: List[str] | str
+    zero_padding_value: int | None = None
 
     def edit(self, new_content: str) -> bool:
         '''
