@@ -88,6 +88,33 @@ You can add a `prefix` and/or `suffix` to your table output that will be prepend
 - Prefix and suffix must not exceed the `length_per_message` value (validation happens at initialization)
 - CJK characters in prefix/suffix are handled correctly using display width calculations
 
+### Enclosure
+
+You can wrap your table content with `enclosure_start` and `enclosure_end` strings on every page. This is particularly useful for wrapping tables in markdown code blocks or other formatting that needs to be applied to each page's content, while keeping prefix/suffix outside the enclosure.
+
+```python
+>>> from dappertable import DapperTable, PaginationLength
+>>> t = DapperTable(pagination_options=PaginationLength(100),
+...                 prefix='**Data Table:**\n',
+...                 enclosure_start='```\n',
+...                 enclosure_end='\n```',
+...                 suffix='\n*Page 1 of 1*')
+>>> t.add_row('Row 1')
+>>> t.add_row('Row 2')
+>>> t.print()
+['**Data Table:**\n```\nRow 1\nRow 2\n```\n*Page 1 of 1*']
+```
+
+**Important notes:**
+- Enclosure wraps **every page's content**, not just first/last
+- Order of wrapping: `prefix` → `enclosure_start` → content → `enclosure_end` → `suffix`
+- With `PaginationLength`, enclosure lengths are accounted for in pagination calculations
+  - Each page reserves space for both `enclosure_start` and `enclosure_end`
+  - Content is automatically split to fit within the available space after accounting for enclosures
+- With `PaginationRows`, enclosures are simply wrapped around each page without affecting row count logic
+- CJK characters in enclosures are handled correctly using display width calculations
+- Common use case: wrapping tables in markdown code blocks (\`\`\`) for Discord/Slack bots
+
 ### Zero Padding
 
 The headers have an `zero_pad_index` option to format index like column options to include leading 0s to make the output look a bit cleaner. Take the following example:

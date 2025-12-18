@@ -196,14 +196,20 @@ def chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
     return [input_list[i:i+size] for i in range(0, len(input_list), size)]
 
 def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
-                         prefix: str = '', suffix: str = '') -> List[List[str]]:
+                         prefix: str = '', suffix: str = '',
+                         enclosure_start: str = '', enclosure_end: str = '') -> List[List[str]]:
+    # pylint: disable=too-many-locals
     '''
-    Split list by length, accounting for prefix on first chunk and suffix on last chunk
+    Split list by length, accounting for prefix on first chunk, suffix on last chunk,
+    and enclosure on all chunks
     '''
     new_rows = []
     current_size = 0
     current_rows = []
     is_first_chunk = True
+
+    # Calculate enclosure overhead (applied to every chunk)
+    enclosure_overhead = string_width(enclosure_start) + string_width(enclosure_end)
 
     for current_item in input_list:
         item_width = string_width(current_item.content)
@@ -213,14 +219,17 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
             raise DapperTableException(f'Length of input "{current_item.content}" is greater than max length {max_length}')
 
         # Determine available space for current chunk
-        available_space = max_length - string_width(prefix) if is_first_chunk else max_length
+        if is_first_chunk:
+            available_space = max_length - string_width(prefix) - enclosure_overhead
+        else:
+            available_space = max_length - enclosure_overhead
 
-        # If first item doesn't fit with prefix, create empty chunk with just prefix
+        # If first item doesn't fit with prefix + enclosure, create empty chunk with just prefix
         if is_first_chunk and item_width > available_space:
             # Create empty chunk for prefix, then continue with normal chunking
             new_rows.append([])
             is_first_chunk = False
-            available_space = max_length
+            available_space = max_length - enclosure_overhead
 
         if item_width + current_size > available_space:
             # Current chunk is full, start new chunk
@@ -266,7 +275,8 @@ class DapperTable():
     '''
     def __init__(self, header_options : DapperTableHeaderOptions = None,
                  pagination_options: PaginationSetting = None, collapse_newlines: bool = True,
-                 prefix: str = '', suffix: str = ''):
+                 prefix: str = '', suffix: str = '',
+                 enclosure_start: str = '', enclosure_end: str = ''):
         '''
         Init a dapper table
 
@@ -274,10 +284,14 @@ class DapperTable():
         collapse_newlines   :   Collapse multiple newlines in messages
         prefix              :   String to prepend to first page of output
         suffix              :   String to append to last page of output
+        enclosure_start     :   String to wrap before table content on each page
+        enclosure_end       :   String to wrap after table content on each page
         '''
         self.collapse_newlines = collapse_newlines
         self._prefix = prefix
         self._suffix = suffix
+        self._enclosure_start = enclosure_start
+        self._enclosure_end = enclosure_end
         self._rows = []
         self._header_rows = []
 
@@ -467,7 +481,8 @@ class DapperTable():
         if self._rows_per_message:
             return chunk_list(all_rows, self._rows_per_message)
         # Assume length per message
-        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix)
+        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix,
+                                   self._enclosure_start, self._enclosure_end)
 
     def print_rows(self, row_list: List[DapperRow]) -> str:
         '''
@@ -487,16 +502,18 @@ class DapperTable():
         # If no pagination options given
         if not (self._rows_per_message or self._length_per_message):
             output = self.print_rows(self._header_rows + self._rows)
-            return f'{self._prefix}{output}{self._suffix}'
+            return f'{self._prefix}{self._enclosure_start}{output}{self._enclosure_end}{self._suffix}'
 
         split_rows = self.get_paginated_rows()
         split_output = []
         for i, sr in enumerate(split_rows):
             page_output = self.print_rows(sr)
-            # Add prefix to first page
+            # Wrap content with enclosure
+            page_output = f'{self._enclosure_start}{page_output}{self._enclosure_end}'
+            # Add prefix to first page (before enclosure)
             if i == 0 and self._prefix:
                 page_output = f'{self._prefix}{page_output}'
-            # Add suffix to last page
+            # Add suffix to last page (after enclosure)
             if i == len(split_rows) - 1 and self._suffix:
                 page_output = f'{page_output}{self._suffix}'
             split_output.append(page_output)

@@ -484,3 +484,97 @@ def test_prefix_row_too_long_with_prefix():
     assert len(result) == 2
     assert result[0] == 'PREFIX'
     assert result[1] == '12345678'
+
+def test_enclosure_no_pagination():
+    """Test enclosure with no pagination"""
+    x = DapperTable(enclosure_start='```\n', enclosure_end='\n```')
+    x.add_row('line 1')
+    x.add_row('line 2')
+    result = x.print()
+    assert result == '```\nline 1\nline 2\n```'
+
+def test_enclosure_with_length_pagination():
+    """Test enclosure wraps each page and accounts for enclosure length in pagination"""
+    x = DapperTable(pagination_options=PaginationLength(20), enclosure_start='```\n', enclosure_end='\n```')
+    # Each enclosure adds 8 chars (4 for start, 4 for end)
+    # Available space per chunk: 20 - 8 = 12 chars
+    x.add_row('12345')  # 5 chars
+    x.add_row('67890')  # 5 chars (total 11 with newline)
+    x.add_row('abcde')  # 5 chars (would be 17 with newline, exceeds 12)
+    result = x.print()
+    assert len(result) == 2
+    assert result[0] == '```\n12345\n67890\n```'
+    assert result[1] == '```\nabcde\n```'
+
+def test_enclosure_with_prefix_suffix():
+    """Test correct ordering: prefix, enclosure_start, content, enclosure_end, suffix"""
+    x = DapperTable(pagination_options=PaginationLength(50),
+                   prefix='**Report:**\n',
+                   suffix='\n*End*',
+                   enclosure_start='```\n',
+                   enclosure_end='\n```')
+    x.add_row('data')
+    result = x.print()
+    assert len(result) == 1
+    assert result[0] == '**Report:**\n```\ndata\n```\n*End*'
+
+def test_enclosure_markdown_example():
+    """Real-world example with markdown code blocks"""
+    from dappertable import DapperTableHeader, DapperTableHeaderOptions
+    headers = [
+        DapperTableHeader('Name', 10),
+        DapperTableHeader('Value', 5)
+    ]
+    x = DapperTable(header_options=DapperTableHeaderOptions(headers),
+                   pagination_options=PaginationLength(100),
+                   prefix='**Data:**\n',
+                   enclosure_start='```\n',
+                   enclosure_end='\n```')
+    x.add_row(['Item 1', '123'])
+    x.add_row(['Item 2', '456'])
+    result = x.print()
+    assert len(result) == 1
+    assert result[0].startswith('**Data:**\n```\n')
+    assert result[0].endswith('\n```')
+    assert 'Item 1' in result[0]
+
+def test_enclosure_start_only():
+    """Test with only opening enclosure"""
+    x = DapperTable(enclosure_start='>>> ')
+    x.add_row('test')
+    result = x.print()
+    assert result == '>>> test'
+
+def test_enclosure_end_only():
+    """Test with only closing enclosure"""
+    x = DapperTable(enclosure_end=' <<<')
+    x.add_row('test')
+    result = x.print()
+    assert result == 'test <<<'
+
+def test_enclosure_all_features():
+    """Test with prefix, suffix, enclosure, and pagination all together"""
+    x = DapperTable(pagination_options=PaginationLength(25),
+                   prefix='[',
+                   suffix=']',
+                   enclosure_start='<',
+                   enclosure_end='>')
+    # Available space: 25 - 2 (enclosure) = 23
+    # First chunk: 23 - 1 (prefix) = 22
+    x.add_row('12345678901234567890')  # 20 chars
+    x.add_row('abc')  # 3 chars
+    result = x.print()
+    assert len(result) == 2
+    assert result[0] == '[<12345678901234567890>'
+    assert result[1] == '<abc>]'
+
+def test_enclosure_large_overhead():
+    """Test when enclosure overhead is large but leaves some space"""
+    x = DapperTable(pagination_options=PaginationLength(25),
+                   enclosure_start='LONG_START_',
+                   enclosure_end='_LONG_END')
+    # Enclosure overhead: 11 + 9 = 20, leaves 5 chars for content
+    x.add_row('xyz')  # 3 chars, fits
+    result = x.print()
+    assert len(result) == 1
+    assert result[0] == 'LONG_START_xyz_LONG_END'
