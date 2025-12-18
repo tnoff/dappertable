@@ -2,6 +2,7 @@
 Taken from https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3
 Use these functions to get proper length of strings for formatting with wide characters
 '''
+from dataclasses import dataclass, field
 from enum import Enum
 from math import ceil
 from re import sub
@@ -14,31 +15,26 @@ class DapperTableException(Exception):
     Generic exception class
     '''
 
-class DapperTableHeader():
+@dataclass
+class DapperTableHeader:
     '''
     Basic header type
     '''
-    def __init__(self, name: str, length: int, zero_pad_index: bool = False):
-        '''
-        Set basic variables
+    name: str
+    length: int
+    zero_pad_index: bool = False
 
-        name    :   Name for header
-        length  :   Max length of content, otherwise will shorten
-        zero_pad_index  :   Pad zeros in front of index column if applicable
-        '''
-        self.name = name
-        self.length = length
-        self.zero_pad_index = zero_pad_index
-
-class DapperTableHeaderOptions():
+@dataclass
+class DapperTableHeaderOptions:
     '''
     Combined Header Options
     '''
-    def __init__(self, headers: List[DapperTableHeader], separator='||'):
-        self.headers = headers
-        self.separator = separator
-        if isinstance(headers, DapperTableHeader):
-            self.headers = [headers]
+    headers: List[DapperTableHeader] | DapperTableHeader
+    separator: str = '||'
+
+    def __post_init__(self):
+        if isinstance(self.headers, DapperTableHeader):
+            self.headers = [self.headers]
         if not self.headers:
             raise DapperTableException('Must have at least one header')
         for header in self.headers:
@@ -53,41 +49,38 @@ class PaginationOptions(Enum):
     ROWS = 'rows'
     LENGTH = 'length'
 
-class PaginationSetting():
+@dataclass
+class PaginationSetting:
     '''
     Pagination settings
     '''
-    def __init__(self, pagination_type: PaginationOptions):
-        self.pagination_type = pagination_type
+    pagination_type: PaginationOptions
 
+@dataclass
 class PaginationRows(PaginationSetting):
     '''
     Pagination By Rows
     '''
-    def __init__(self, rows_per_message: int):
-        super().__init__(PaginationOptions.ROWS)
-        self.rows_per_message = rows_per_message
+    rows_per_message: int
+    pagination_type: PaginationOptions = field(default=PaginationOptions.ROWS, init=False)
 
+@dataclass
 class PaginationLength(PaginationSetting):
     '''
     Pagination By Length
     '''
-    def __init__(self, length_per_message: int):
-        super().__init__(PaginationOptions.LENGTH)
-        self.length_per_message = length_per_message
+    length_per_message: int
+    pagination_type: PaginationOptions = field(default=PaginationOptions.LENGTH, init=False)
 
 
-class DapperRow():
+@dataclass
+class DapperRow:
     '''
     Instance of a row in a table
     '''
-    def __init__(self, content: str, input_values: List[str] | str, zero_padding_value=None):
-        '''
-        Create a new row
-        '''
-        self.content = content
-        self.input_values = input_values
-        self.zero_padding_value = zero_padding_value
+    content: str
+    input_values: List[str] | str
+    zero_padding_value: int | None = None
 
     def edit(self, new_content: str) -> bool:
         '''
@@ -202,24 +195,69 @@ def chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
     size = max(1, chunk_size)
     return [input_list[i:i+size] for i in range(0, len(input_list), size)]
 
-def chunk_list_by_length(input_list: List[DapperRow], max_length: int) -> List[List[str]]:
+def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
+                         prefix: str = '', suffix: str = '') -> List[List[str]]:
     '''
-    Split list by length
+    Split list by length, accounting for prefix on first chunk and suffix on last chunk
     '''
     new_rows = []
     current_size = 0
     current_rows = []
+    is_first_chunk = True
 
     for current_item in input_list:
-        if string_width(current_item.content) > max_length:
-            raise DapperTableException(f'Length of input "{current_item.content}" is greater than iteration max length {max_length}')
-        if string_width(current_item.content) + current_size > max_length:
+        item_width = string_width(current_item.content)
+
+        # Check if item is too large for any page
+        if item_width > max_length:
+            raise DapperTableException(f'Length of input "{current_item.content}" is greater than max length {max_length}')
+
+        # Determine available space for current chunk
+        available_space = max_length - string_width(prefix) if is_first_chunk else max_length
+
+        # If first item doesn't fit with prefix, create empty chunk with just prefix
+        if is_first_chunk and item_width > available_space:
+            # Create empty chunk for prefix, then continue with normal chunking
+            new_rows.append([])
+            is_first_chunk = False
+            available_space = max_length
+
+        if item_width + current_size > available_space:
+            # Current chunk is full, start new chunk
             new_rows.append(current_rows)
             current_rows = []
             current_size = 0
+            is_first_chunk = False
+            available_space = max_length
+
         current_rows.append(current_item)
-        current_size += string_width(current_item.content)
-    new_rows.append(current_rows)
+        current_size += item_width
+
+    # Add the last chunk
+    if current_rows:
+        new_rows.append(current_rows)
+
+    # Adjust last chunk for suffix
+    if new_rows and suffix:
+        while new_rows:
+            last_chunk = new_rows[-1]
+            last_chunk_size = sum(string_width(row.content) for row in last_chunk)
+
+            if last_chunk_size + string_width(suffix) <= max_length:
+                # Last chunk fits with suffix
+                break
+
+            # Need to move rows from last chunk
+            if len(last_chunk) == 1:
+                # Single row doesn't fit with suffix - create empty chunk for suffix
+                new_rows.append([])
+                break
+
+            # Move last row to a new chunk
+            moved_row = last_chunk.pop()
+            # Create new chunk with moved row
+            new_rows.append([moved_row])
+
     return new_rows
 
 class DapperTable():
@@ -227,14 +265,19 @@ class DapperTable():
     Split large inputs into smaller messages, also supports formatting
     '''
     def __init__(self, header_options : DapperTableHeaderOptions = None,
-                 pagination_options: PaginationSetting = None, collapse_newlines: bool = True):
+                 pagination_options: PaginationSetting = None, collapse_newlines: bool = True,
+                 prefix: str = '', suffix: str = ''):
         '''
         Init a dapper table
 
         headerOptions       :   DapperTable header options, if not given will treat as raw input
         collapse_newlines   :   Collapse multiple newlines in messages
+        prefix              :   String to prepend to first page of output
+        suffix              :   String to append to last page of output
         '''
         self.collapse_newlines = collapse_newlines
+        self._prefix = prefix
+        self._suffix = suffix
         self._rows = []
         self._header_rows = []
 
@@ -249,6 +292,11 @@ class DapperTable():
                 self._length_per_message = pagination_options.length_per_message
                 if pagination_options.length_per_message < 1:
                     raise DapperTableException(f'Invalid value for length per message: {pagination_options.length_per_message}')
+                # Validate prefix/suffix don't exceed pagination length
+                if string_width(prefix) > pagination_options.length_per_message:
+                    raise DapperTableException(f'Prefix length ({string_width(prefix)}) exceeds pagination length ({pagination_options.length_per_message})')
+                if string_width(suffix) > pagination_options.length_per_message:
+                    raise DapperTableException(f'Suffix length ({string_width(suffix)}) exceeds pagination length ({pagination_options.length_per_message})')
 
         # Headers
         self._headers = None
@@ -419,7 +467,7 @@ class DapperTable():
         if self._rows_per_message:
             return chunk_list(all_rows, self._rows_per_message)
         # Assume length per message
-        return chunk_list_by_length(all_rows, self._length_per_message)
+        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix)
 
     def print_rows(self, row_list: List[DapperRow]) -> str:
         '''
@@ -438,11 +486,20 @@ class DapperTable():
         '''
         # If no pagination options given
         if not (self._rows_per_message or self._length_per_message):
-            return self.print_rows(self._header_rows + self._rows)
+            output = self.print_rows(self._header_rows + self._rows)
+            return f'{self._prefix}{output}{self._suffix}'
+
         split_rows = self.get_paginated_rows()
         split_output = []
-        for sr in split_rows:
-            split_output.append(self.print_rows(sr))
+        for i, sr in enumerate(split_rows):
+            page_output = self.print_rows(sr)
+            # Add prefix to first page
+            if i == 0 and self._prefix:
+                page_output = f'{self._prefix}{page_output}'
+            # Add suffix to last page
+            if i == len(split_rows) - 1 and self._suffix:
+                page_output = f'{page_output}{self._suffix}'
+            split_output.append(page_output)
         return split_output
 
 

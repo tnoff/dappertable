@@ -64,6 +64,30 @@ You can also use `PaginationLength` to with the `length_per_message` value to sp
 ```
 
 
+### Prefix and Suffix
+
+You can add a `prefix` and/or `suffix` to your table output that will be prepended to the first page and appended to the last page respectively. This is particularly useful when you want to add context or formatting around your table output.
+
+```python
+>>> from dappertable import DapperTable, PaginationLength
+>>> t = DapperTable(pagination_options=PaginationLength(50), prefix='--- Report Start ---\n', suffix='\n--- Report End ---')
+>>> t.add_row('Data point 1')
+>>> t.add_row('Data point 2')
+>>> t.add_row('Data point 3')
+>>> t.print()
+['--- Report Start ---\nData point 1\nData point 2\nData point 3\n--- Report End ---']
+```
+
+**Important notes:**
+- Prefix appears **only on the first page**, suffix **only on the last page**
+- With `PaginationLength`, the prefix/suffix lengths are accounted for in pagination calculations
+  - The first page reserves space for the prefix
+  - The last page reserves space for the suffix
+  - If a row doesn't fit with the prefix/suffix, an additional page is created for just the prefix/suffix
+- With `PaginationRows`, prefix/suffix are simply added to the first/last pages without affecting row count logic
+- Prefix and suffix must not exceed the `length_per_message` value (validation happens at initialization)
+- CJK characters in prefix/suffix are handled correctly using display width calculations
+
 ### Zero Padding
 
 The headers have an `zero_pad_index` option to format index like column options to include leading 0s to make the output look a bit cleaner. Take the following example:
