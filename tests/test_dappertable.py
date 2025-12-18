@@ -111,7 +111,7 @@ def test_dapper_table_split_length_invalid_input():
     x.add_row('1234789012345')
     with pytest.raises(DapperTableException) as error:
         x.print()
-    assert 'Length of input "1234789012345" is greater than iteration max length 10' in str(error.value)
+    assert 'Length of input "1234789012345" is greater than max length 10' in str(error.value)
     with pytest.raises(DapperTableException) as error:
         DapperTable(pagination_options=PaginationLength(-5))
     assert 'Invalid value for length per message: -5' in str(error.value)
@@ -385,3 +385,102 @@ def test_dapper_row():
     x = DapperRow('foo', 'foo')
     assert len(x) == 3
     assert x[0] == 'f'
+
+def test_prefix_suffix_no_pagination():
+    """Test prefix/suffix with no pagination"""
+    x = DapperTable(prefix='START:', suffix=':END')
+    x.add_row('foo')
+    x.add_row('bar')
+    result = x.print()
+    assert result == 'START:foo\nbar:END'
+
+def test_prefix_suffix_with_length_pagination():
+    """Test prefix/suffix with length-based pagination - multiple pages"""
+    x = DapperTable(pagination_options=PaginationLength(10), prefix='[', suffix=']')
+    x.add_row('1234')  # 4 chars
+    x.add_row('1234')  # 4 chars
+    x.add_row('1234')  # 4 chars
+    result = x.print()
+    # First chunk: '[' (1) + '1234\n1234' (9) = 10 total
+    # Second chunk: '1234' (4) + ']' (1) = 5 total
+    assert result == ['[1234\n1234', '1234]']
+
+def test_prefix_suffix_with_rows_pagination():
+    """Test prefix/suffix with rows-based pagination"""
+    x = DapperTable(pagination_options=PaginationRows(2), prefix='>>>', suffix='<<<')
+    x.add_row('foo')
+    x.add_row('bar')
+    x.add_row('baz')
+    result = x.print()
+    assert result == ['>>>foo\nbar', 'baz<<<']
+
+def test_prefix_exceeds_length():
+    """Test error when prefix alone exceeds pagination length"""
+    with pytest.raises(DapperTableException) as error:
+        DapperTable(pagination_options=PaginationLength(5), prefix='TOOLONG')
+    assert 'Prefix length (7) exceeds pagination length (5)' in str(error.value)
+
+def test_suffix_exceeds_length():
+    """Test error when suffix alone exceeds pagination length"""
+    with pytest.raises(DapperTableException) as error:
+        DapperTable(pagination_options=PaginationLength(5), suffix='TOOLONG')
+    assert 'Suffix length (7) exceeds pagination length (5)' in str(error.value)
+
+def test_prefix_only():
+    """Test with only prefix, no suffix"""
+    x = DapperTable(pagination_options=PaginationLength(10), prefix='> ')
+    x.add_row('test1')
+    x.add_row('test2')
+    result = x.print()
+    assert result[0].startswith('> ')
+    assert not result[-1].endswith('> ')
+
+def test_suffix_only():
+    """Test with only suffix, no prefix"""
+    x = DapperTable(pagination_options=PaginationLength(10), suffix=' <')
+    x.add_row('test1')
+    x.add_row('test2')
+    result = x.print()
+    assert result[-1].endswith(' <')
+    assert not result[0].startswith(' <')
+
+def test_prefix_suffix_with_cjk():
+    """Test CJK characters in prefix/suffix are handled correctly"""
+    x = DapperTable(pagination_options=PaginationLength(20), prefix='日本:', suffix=':語')
+    x.add_row('test1')
+    x.add_row('test2')
+    result = x.print()
+    # First page should have prefix
+    assert result[0].startswith('日本:')
+    # Last page should have suffix
+    assert result[-1].endswith(':語')
+
+def test_prefix_suffix_single_page():
+    """Test prefix/suffix when table fits in single page"""
+    x = DapperTable(pagination_options=PaginationLength(50), prefix='START\n', suffix='\nEND')
+    x.add_row('row1')
+    x.add_row('row2')
+    result = x.print()
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0] == 'START\nrow1\nrow2\nEND'
+
+def test_prefix_suffix_row_too_long_with_suffix():
+    """Test that suffix gets its own page when row doesn't fit with it"""
+    x = DapperTable(pagination_options=PaginationLength(10), suffix='SUFFIX')
+    x.add_row('12345678')  # 8 chars, doesn't fit with 6 char suffix
+    result = x.print()
+    # Should create two pages: one with the row, one with just the suffix
+    assert len(result) == 2
+    assert result[0] == '12345678'
+    assert result[1] == 'SUFFIX'
+
+def test_prefix_row_too_long_with_prefix():
+    """Test that prefix gets its own page when row doesn't fit with it"""
+    x = DapperTable(pagination_options=PaginationLength(10), prefix='PREFIX')
+    x.add_row('12345678')  # 8 chars, doesn't fit with 6 char prefix
+    result = x.print()
+    # Should create two pages: one with just the prefix, one with the row
+    assert len(result) == 2
+    assert result[0] == 'PREFIX'
+    assert result[1] == '12345678'
