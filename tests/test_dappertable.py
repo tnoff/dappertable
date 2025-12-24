@@ -485,6 +485,23 @@ def test_prefix_row_too_long_with_prefix():
     assert result[0] == 'PREFIX'
     assert result[1] == '12345678'
 
+def test_suffix_with_multiple_rows_requiring_move():
+    """Test that rows are moved when multiple rows don't fit with suffix"""
+    x = DapperTable(pagination_options=PaginationLength(20), suffix='SUFFIX')
+    # Add rows that fit in one chunk without suffix but not with it
+    # Each row is 5 chars, with newlines: 5 + 1 + 5 + 1 + 5 = 17 chars
+    # With SUFFIX (6 chars), total would be 23, exceeding limit of 20
+    x.add_row('row11')
+    x.add_row('row22')
+    x.add_row('row33')
+    result = x.print()
+    # Should move rows to accommodate suffix
+    assert len(result) == 2
+    # First page should have some rows
+    assert 'row11' in result[0]
+    # Last page should have suffix
+    assert result[1].endswith('SUFFIX')
+
 def test_enclosure_no_pagination():
     """Test enclosure with no pagination"""
     x = DapperTable(enclosure_start='```\n', enclosure_end='\n```')
@@ -520,7 +537,7 @@ def test_enclosure_with_prefix_suffix():
 
 def test_enclosure_markdown_example():
     """Real-world example with markdown code blocks"""
-    from dappertable import DapperTableHeader, DapperTableHeaderOptions
+    
     headers = [
         DapperTableHeader('Name', 10),
         DapperTableHeader('Value', 5)
