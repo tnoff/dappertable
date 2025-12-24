@@ -196,9 +196,8 @@ def chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
     return [input_list[i:i+size] for i in range(0, len(input_list), size)]
 
 def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
-                         prefix: str = '', suffix: str = '',
-                         enclosure_start: str = '', enclosure_end: str = '') -> List[List[str]]:
-    # pylint: disable=too-many-locals
+                         prefix: str = '', suffix: str = '') -> List[List[str]]:
+    # pylint: disable=too-many-locals,too-many-branches
     '''
     Split list by length, accounting for prefix on first chunk, suffix on last chunk,
     and enclosure on all chunks
@@ -207,9 +206,6 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
     current_size = 0
     current_rows = []
     is_first_chunk = True
-
-    # Calculate enclosure overhead (applied to every chunk)
-    enclosure_overhead = string_width(enclosure_start) + string_width(enclosure_end)
 
     for current_item in input_list:
         item_width = string_width(current_item.content)
@@ -220,27 +216,37 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
 
         # Determine available space for current chunk
         if is_first_chunk:
-            available_space = max_length - string_width(prefix) - enclosure_overhead
+            available_space = max_length - string_width(prefix)
         else:
-            available_space = max_length - enclosure_overhead
+            available_space = max_length
 
-        # If first item doesn't fit with prefix + enclosure, create empty chunk with just prefix
-        if is_first_chunk and item_width > available_space:
+        # Calculate the size this item will add to the chunk
+        # Include newline separator if this isn't the first row in the chunk
+        item_size_to_add = item_width
+        if current_rows:  # If there are already rows, we need a newline before this one
+            item_size_to_add += 1
+
+        # If first item doesn't fit with prefix, create empty chunk with just prefix
+        if is_first_chunk and item_size_to_add > available_space:
             # Create empty chunk for prefix, then continue with normal chunking
             new_rows.append([])
             is_first_chunk = False
-            available_space = max_length - enclosure_overhead
+            available_space = max_length
+            # Recalculate since we're now in a new chunk (first item, no newline needed)
+            item_size_to_add = item_width
 
-        if item_width + current_size > available_space:
+        if current_size + item_size_to_add > available_space:
             # Current chunk is full, start new chunk
             new_rows.append(current_rows)
             current_rows = []
             current_size = 0
             is_first_chunk = False
             available_space = max_length
+            # Recalculate since we're now in a new chunk (first item, no newline needed)
+            item_size_to_add = item_width
 
         current_rows.append(current_item)
-        current_size += item_width
+        current_size += item_size_to_add
 
     # Add the last chunk
     if current_rows:
@@ -250,7 +256,10 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
     if new_rows and suffix:
         while new_rows:
             last_chunk = new_rows[-1]
+            # Calculate total size including newlines between rows
             last_chunk_size = sum(string_width(row.content) for row in last_chunk)
+            if len(last_chunk) > 1:
+                last_chunk_size += len(last_chunk) - 1  # Add newlines between rows
 
             if last_chunk_size + string_width(suffix) <= max_length:
                 # Last chunk fits with suffix
@@ -303,8 +312,9 @@ class DapperTable():
                 if pagination_options.rows_per_message and pagination_options.rows_per_message < 1:
                     raise DapperTableException(f'Invalid value for rows per message: {pagination_options.rows_per_message}')
             if pagination_options.pagination_type == PaginationOptions.LENGTH:
-                self._length_per_message = pagination_options.length_per_message
-                if pagination_options.length_per_message < 1:
+                # Make sure we take the enclosures into account
+                self._length_per_message = pagination_options.length_per_message - string_width(self._enclosure_start) - string_width(self._enclosure_end)
+                if self._length_per_message < 1:
                     raise DapperTableException(f'Invalid value for length per message: {pagination_options.length_per_message}')
                 # Validate prefix/suffix don't exceed pagination length
                 if string_width(prefix) > pagination_options.length_per_message:
@@ -481,8 +491,7 @@ class DapperTable():
         if self._rows_per_message:
             return chunk_list(all_rows, self._rows_per_message)
         # Assume length per message
-        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix,
-                                   self._enclosure_start, self._enclosure_end)
+        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix)
 
     def print_rows(self, row_list: List[DapperRow]) -> str:
         '''
