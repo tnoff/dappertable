@@ -1,143 +1,280 @@
 # DapperTable
 
-Similar to [prettytable](https://pypi.org/project/prettytable/), print formatted tables in python using f-string. Tables can be split into a list of strings if requested, which is useful when sending messages via 3rd party libraries that limit messages on length of a string.
+A Python library for building formatted, paginated text tables — designed for bots and CLI tools that need to send output in chunks.
 
-Handles wide characters (including East Asian languages that have double-width spacing) using the [wcwidth](https://pypi.org/project/wcwidth/) library for accurate display width calculations. Initial logic inspired by: [this @gullevek post](https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3)
+Handles wide characters (including East Asian languages) using the [wcwidth](https://pypi.org/project/wcwidth/) library. Initial logic inspired by [this @gullevek post](https://medium.com/@gullevek/python-output-formatting-double-byte-characters-6d6d18d04be3).
+
+## Installation
+
+```
+$ git clone https://github.com/tnoff/dappertable.git
+$ pip install dappertable/
+```
+
+## Core Concepts
+
+- **`Column(name, width)`** — defines a column with a header name and max display width. Values wider than `width` are truncated with `..`.
+- **`Columns([...])`** — groups columns together, with an optional separator string (default `||`).
+- **`PaginationLength(n)`** — splits output into pages where each page is at most `n` characters.
+- **`PaginationRows(n)`** — splits output into pages of at most `n` rows each.
+- **`prefix`** — text prepended to the first page only.
+- **`suffix`** — text appended to the last page only.
+- **`enclosure_start` / `enclosure_end`** — text wrapped around the content of *every* page (e.g. markdown code fences).
 
 ## Basic Usage
 
-With no options added at init, just adds rows and prints entire value with newline separation.
-
-```
->>> from dappertable import DapperTable
->>> x = DapperTable()
->>> x.add_row('first row')
-True
->>> x.add_row('second row')
-True
->>> x.print()
-'first row\nsecond row'
-```
-
-### Header Formatting
-
-
-Similar to pretty table, set headers first and then add each individual row. The `DapperTableHeader` object will set the top header row and the max length of each column. If an column in a row later on is added with a length greater than the one in the column, it will be shortened with a `...` suffix added.
-
-Example:
-```
->>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions
->>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 10)]))
->>> t.add_row([1, 'foo'])
->>> t.add_row([2, 'example title'])
->>> t.print()
-'pos|| name\n----------------\n1  || foo\n2  || example ..'
-```
-
-### Pagination Options
-
-If you pass `pagination_options` you can setup output to return a list of strings that match the params.
-
-For example you can use `PaginationRows` with the `rows_per_message` value into the initial table, this will split the table into a list of multiple strings. This is useful for clients sending requests via an API, so you can 'paginate' the table in a manner of speaking.
-
-```
->>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions, PaginationRows
->>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3), DapperTableHeader('name', 10)]), pagination_options=PaginationRows(2))
->>> t.add_row([1, 'foo'])
->>> t.add_row([2, 'example'])
->>> t.add_row([3, 'bar'])
->>> t.print()
-['pos|| name\n----------------', '1  || foo\n2  || example', '3  || bar']
-```
-
-You can also use `PaginationLength` to with the `length_per_message` value to split up the output into multiple strings where the max length of each string is this value.
-
-```
->>> from dappertable import DapperTable, PaginationLength
->>> t = DapperTable(pagination_options=PaginationLength(10))
->>> t.add_row('12345')
->>> t.add_row('12345')
->>> t.add_row('12345')
-
->>> t.print()
-['12345\n12345', '12345']
-```
-
-
-### Prefix and Suffix
-
-You can add a `prefix` and/or `suffix` to your table output that will be prepended to the first page and appended to the last page respectively. This is particularly useful when you want to add context or formatting around your table output.
+Without columns, `DapperTable` just joins rows with newlines:
 
 ```python
->>> from dappertable import DapperTable, PaginationLength
->>> t = DapperTable(pagination_options=PaginationLength(50), prefix='--- Report Start ---\n', suffix='\n--- Report End ---')
->>> t.add_row('Data point 1')
->>> t.add_row('Data point 2')
->>> t.add_row('Data point 3')
->>> t.print()
-['--- Report Start ---\nData point 1\nData point 2\nData point 3\n--- Report End ---']
+from dappertable import DapperTable
+
+table = DapperTable()
+table.add_row('first row')
+table.add_row('second row')
+print(table.render())
+# 'first row\nsecond row'
 ```
 
-**Important notes:**
-- Prefix appears **only on the first page**, suffix **only on the last page**
-- With `PaginationLength`, the prefix/suffix lengths are accounted for in pagination calculations
-  - The first page reserves space for the prefix
-  - The last page reserves space for the suffix
-  - If a row doesn't fit with the prefix/suffix, an additional page is created for just the prefix/suffix
-- With `PaginationRows`, prefix/suffix are simply added to the first/last pages without affecting row count logic
-- Prefix and suffix must not exceed the `length_per_message` value (validation happens at initialization)
-- CJK characters in prefix/suffix are handled correctly using display width calculations
+## Formatted Table with Columns
 
-### Enclosure
-
-You can wrap your table content with `enclosure_start` and `enclosure_end` strings on every page. This is particularly useful for wrapping tables in markdown code blocks or other formatting that needs to be applied to each page's content, while keeping prefix/suffix outside the enclosure.
+Define columns up front — each row must then be a list matching the column count. Values that exceed the column width are truncated with `..`:
 
 ```python
->>> from dappertable import DapperTable, PaginationLength
->>> t = DapperTable(pagination_options=PaginationLength(100),
-...                 prefix='**Data Table:**\n',
-...                 enclosure_start='```\n',
-...                 enclosure_end='\n```',
-...                 suffix='\n*Page 1 of 1*')
->>> t.add_row('Row 1')
->>> t.add_row('Row 2')
->>> t.print()
-['**Data Table:**\n```\nRow 1\nRow 2\n```\n*Page 1 of 1*']
+from dappertable import DapperTable, Column, Columns
+
+table = DapperTable(columns=Columns([
+    Column('Pos', 3),
+    Column('Title', 30),
+    Column('Uploader', 20),
+]))
+table.add_row(['1', 'My Favourite Song', 'Some Artist'])
+table.add_row(['2', 'A Very Long Title That Will Get Cut Off Here', 'Another Artist'])
+print(table.render())
 ```
 
-**Important notes:**
-- Enclosure wraps **every page's content**, not just first/last
-- Order of wrapping: `prefix` → `enclosure_start` → content → `enclosure_end` → `suffix`
-- With `PaginationLength`, enclosure lengths are accounted for in pagination calculations
-  - Each page reserves space for both `enclosure_start` and `enclosure_end`
-  - Content is automatically split to fit within the available space after accounting for enclosures
-- With `PaginationRows`, enclosures are simply wrapped around each page without affecting row count logic
-- CJK characters in enclosures are handled correctly using display width calculations
-- Common use case: wrapping tables in markdown code blocks (\`\`\`) for Discord/Slack bots
-
-### Zero Padding
-
-The headers have an `zero_pad_index` option to format index like column options to include leading 0s to make the output look a bit cleaner. Take the following example:
-
+Output:
 ```
->>> from dappertable import DapperTable, DapperTableHeader, DapperTableHeaderOptions
->>> t = DapperTable(header_options=DapperTableHeaderOptions([DapperTableHeader('pos', 3, zero_pad_index=True), DapperTableHeader('name', 10)]))
->>> for count in range(15):
-...     t.add_row([count, 'foo'])
-... 
->>> t.print()
-'pos|| name\n----------------\n00 || foo\n01 || foo\n02 || foo\n03 || foo\n04 || foo\n05 || foo\n06 || foo\n07 || foo\n08 || foo\n09 || foo\n10 || foo\n11 || foo\n12 || foo\n13 || foo\n14 || foo'
-
+Pos|| Title                         || Uploader
+--------------------------------------------------
+1  || My Favourite Song             || Some Artist
+2  || A Very Long Title That Will.. || Another Artist
 ```
 
-### Collapse Newlines
+## Discord Bot Example
 
-By default `collapse_newlines` is set to True, this removes double newlines (`\n\n`) from outputs.
+The most common use case: send a paginated, code-block-wrapped table as multiple Discord messages. Discord has a 2000 character message limit, so `PaginationLength(2000)` splits the table automatically. `enclosure_start` and `enclosure_end` wrap each page in a markdown code fence so the table renders with monospace formatting. `prefix` adds a title to the first page.
 
-## Advanced Usage
+```python
+from dappertable import DapperTable, Column, Columns, PaginationLength
 
-You can also request a list of rows from after pagination processing and use methods to print these directly. This is if you want to get the pagination for some 'locked' input and edit the `DapperRow` instances themselves.
+DISCORD_MAX_MESSAGE_LENGTH = 2000
 
-You can use `get_paginated_rows` to get a List of `DapperRow` objects which contain the formatted or unformatted strings (depending on header inputs), and then pass this data into `print_rows` to get the list of outputs.
+table = DapperTable(
+    columns=Columns([
+        Column('Pos', 3, zero_pad=True),
+        Column('Title', 40),
+        Column('Uploader', 40),
+    ]),
+    pagination_options=PaginationLength(DISCORD_MAX_MESSAGE_LENGTH),
+    enclosure_start='```\n',
+    enclosure_end='\n```',
+    prefix='Now Playing Queue\n',
+)
 
-If you want you can edit the `DapperRow` object directly with `.edit()` to directly modify input if you want to skip some formatting options.
+queue = [
+    ('Yours', 'Yuki Saito'),
+    ('禁断のテレパシー', '工藤静香'),
+    ('Crystal Night', '1986 OMEGA TRIBE'),
+]
+for i, (title, uploader) in enumerate(queue, 1):
+    table.add_row([str(i), title, uploader])
+
+for message in table.render():
+    # channel.send(message)  # each string fits within Discord's limit
+    print(message)
+    print()
+```
+
+Output (single page in this case):
+```
+Now Playing Queue
+` `` `
+Pos|| Title                                    || Uploader
+------------------------------------------------------------
+01 || Yours                                    || Yuki Saito
+02 || 禁断のテレパシー                           || 工藤静香
+03 || Crystal Night                            || 1986 OMEGA TRIBE
+` `` `
+```
+
+When the table is long enough to span multiple pages, each page gets its own code fence, and the prefix only appears on the first page.
+
+### Playlist List Example
+
+```python
+table = DapperTable(
+    columns=Columns([
+        Column('ID', 3),
+        Column('Playlist Name', 64),
+        Column('Last Queued', 20),
+    ]),
+    pagination_options=PaginationLength(DISCORD_MAX_MESSAGE_LENGTH),
+    enclosure_start='```\n',
+    enclosure_end='\n```',
+    prefix='Playlist List\n',
+)
+
+for i, (name, last_queued) in enumerate(playlists):
+    table.add_row([str(i), name, last_queued])
+
+for message in table.render():
+    pass  # channel.send(message)
+```
+
+## Pagination Options
+
+### By character length
+
+```python
+from dappertable import DapperTable, PaginationLength
+
+table = DapperTable(pagination_options=PaginationLength(20))
+table.add_row('row one')    # 7 chars
+table.add_row('row two')    # 7 chars (total 15 with newline)
+table.add_row('row three')  # 9 chars (would exceed 20)
+print(table.render())
+# ['row one\nrow two', 'row three']
+```
+
+### By row count
+
+```python
+from dappertable import DapperTable, PaginationRows
+
+table = DapperTable(pagination_options=PaginationRows(2))
+table.add_row('alpha')
+table.add_row('beta')
+table.add_row('gamma')
+print(table.render())
+# ['alpha\nbeta', 'gamma']
+```
+
+## Prefix and Suffix
+
+`prefix` is prepended to the first page; `suffix` is appended to the last. When using `PaginationLength`, their character widths are accounted for in the page size calculation.
+
+```python
+from dappertable import DapperTable, PaginationLength
+
+table = DapperTable(
+    pagination_options=PaginationLength(2000),
+    prefix='Results:\n',
+    suffix='\nPage 1 of 1',
+)
+table.add_row('some data')
+print(table.render())
+# ['Results:\nsome data\nPage 1 of 1']
+```
+
+## Enclosure
+
+`enclosure_start` and `enclosure_end` wrap the content of *every* page. This is the right tool for markdown code fences when paginating, since each page needs its own opening and closing fence.
+
+The page layout order is: `prefix` → `enclosure_start` → content → `enclosure_end` → `suffix`.
+
+```python
+from dappertable import DapperTable, PaginationLength
+
+table = DapperTable(
+    pagination_options=PaginationLength(50),
+    prefix='**Table:**\n',
+    enclosure_start='```\n',
+    enclosure_end='\n```',
+)
+table.add_row('row 1')
+table.add_row('row 2')
+print(table.render())
+# ['**Table:**\n```\nrow 1\nrow 2\n```']
+```
+
+## Zero Padding
+
+Set `zero_pad=True` on a `Column` to left-pad numeric index values with zeros. The padding width is determined automatically from the total row count, so it stays consistent as rows are added:
+
+```python
+from dappertable import DapperTable, Column, Columns
+
+table = DapperTable(columns=Columns([
+    Column('Pos', 3, zero_pad=True),
+    Column('Name', 10),
+]))
+for i in range(12):
+    table.add_row([str(i), f'item {i}'])
+print(table.render())
+# Pos|| Name
+# --------------
+# 00 || item 0
+# 01 || item 1
+# ...
+# 11 || item 11
+```
+
+## Custom Column Separator
+
+The default column separator is `||`. Override it per `Columns` instance:
+
+```python
+from dappertable import DapperTable, Column, Columns
+
+table = DapperTable(columns=Columns(
+    [Column('A', 5), Column('B', 5)],
+    separator='|',
+))
+table.add_row(['foo', 'bar'])
+print(table.render())
+# A    | B
+# -----------
+# foo  | bar
+```
+
+## Modifying Rows
+
+```python
+from dappertable import DapperTable
+
+table = DapperTable()
+table.add_row('original')
+table.add_row('keep this')
+table.edit_row(0, 'updated')
+table.remove_row(0)
+print(table.render())
+# 'keep this'
+
+print(len(table))  # 1
+```
+
+## Advanced: Accessing Pages Directly
+
+Use `get_pages()` and `format_page()` when you want to inspect or modify the paginated rows before rendering:
+
+```python
+from dappertable import DapperTable, Column, Columns, PaginationLength
+
+table = DapperTable(
+    columns=Columns([Column('pos', 3), Column('name', 10)]),
+    pagination_options=PaginationLength(30),
+)
+table.add_row(['1', 'foo'])
+table.add_row(['2', 'bar'])
+
+pages = table.get_pages()
+for page in pages:
+    print(table.format_page(page))
+```
+
+Individual rows can also be edited directly via `DapperRow.edit()` to bypass column formatting:
+
+```python
+pages[0][0].edit('custom content')
+print(table.format_page(pages[0]))
+```
