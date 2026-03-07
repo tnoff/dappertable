@@ -5,6 +5,29 @@ All notable changes to DapperTable will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-03-05
+
+### Changed
+- **Breaking**: Renamed `DapperTableHeader` to `Column` and `DapperTableHeaderOptions` to `Columns`
+- **Breaking**: `Column.length` renamed to `Column.width`
+- **Breaking**: `Column.zero_pad_index` renamed to `Column.zero_pad`
+- **Breaking**: `DapperTable` init parameter `header_options` renamed to `columns`
+- **Breaking**: `DapperTable.print()` renamed to `DapperTable.render()`
+- **Breaking**: `DapperTable.print_rows()` renamed to `DapperTable.format_page()`
+- **Breaking**: `DapperTable.get_paginated_rows()` renamed to `DapperTable.get_pages()`
+- **Breaking**: `DapperTableException` renamed to `DapperTableError`
+- Internal helper functions `chunk_list` and `chunk_list_by_length` are no longer part of the public API (prefixed with `_`)
+- `PaginationOptions` enum renamed to `PaginationType`; `PaginationSetting` base class is no longer part of the public API
+- Rewrote README with clearer examples based on real-world Discord bot usage
+
+### Added
+- `DapperTable.__len__()` support so `len(table)` works alongside the existing `.size` property
+
+## [0.2.4] - 2025-12-23
+
+## Changed
+- Updated `chunk_list_by_length` to account for newlines in pagination length
+
 ## [0.2.3] - 2025-12-17
 
 ### Added

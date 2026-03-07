@@ -10,67 +10,67 @@ from typing import List
 from unicodedata import east_asian_width
 from wcwidth import wcswidth
 
-class DapperTableException(Exception):
+class DapperTableError(Exception):
     '''
-    Generic exception class
+    Generic error class
     '''
 
 @dataclass
-class DapperTableHeader:
+class Column:
     '''
-    Basic header type
+    Defines a single table column with a name and maximum display width.
     '''
     name: str
-    length: int
-    zero_pad_index: bool = False
+    width: int
+    zero_pad: bool = False
 
 @dataclass
-class DapperTableHeaderOptions:
+class Columns:
     '''
-    Combined Header Options
+    Collection of Column definitions with a column separator.
     '''
-    headers: List[DapperTableHeader] | DapperTableHeader
+    headers: List[Column] | Column
     separator: str = '||'
 
     def __post_init__(self):
-        if isinstance(self.headers, DapperTableHeader):
+        if isinstance(self.headers, Column):
             self.headers = [self.headers]
         if not self.headers:
-            raise DapperTableException('Must have at least one header')
+            raise DapperTableError('Must have at least one header')
         for header in self.headers:
-            if not isinstance(header, DapperTableHeader):
-                raise DapperTableException('Header must be DapperTableHeader object')
+            if not isinstance(header, Column):
+                raise DapperTableError('Header must be Column object')
 
 
-class PaginationOptions(Enum):
+class PaginationType(Enum):
     '''
-    Default pagination options
+    Pagination type
     '''
     ROWS = 'rows'
     LENGTH = 'length'
 
 @dataclass
-class PaginationSetting:
+class _PaginationBase:
     '''
-    Pagination settings
+    Base pagination settings class
     '''
-    pagination_type: PaginationOptions
+    pagination_type: PaginationType
 
 @dataclass
-class PaginationRows(PaginationSetting):
+class PaginationRows(_PaginationBase):
     '''
     Pagination By Rows
     '''
     rows_per_message: int
-    pagination_type: PaginationOptions = field(default=PaginationOptions.ROWS, init=False)
+    pagination_type: PaginationType = field(default=PaginationType.ROWS, init=False)
 
 @dataclass
-class PaginationLength(PaginationSetting):
+class PaginationLength(_PaginationBase):
     '''
     Pagination By Length
     '''
     length_per_message: int
-    pagination_type: PaginationOptions = field(default=PaginationOptions.LENGTH, init=False)
+    pagination_type: PaginationType = field(default=PaginationType.LENGTH, init=False)
 
 
 @dataclass
@@ -185,7 +185,7 @@ def format_string_length(input_string: str, length: int) -> int:
 
 
 # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
-def chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
+def _chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
     '''
     Split list into equal sized chunks
 
@@ -195,10 +195,9 @@ def chunk_list(input_list: List[object], chunk_size: int) -> List[List[object]]:
     size = max(1, chunk_size)
     return [input_list[i:i+size] for i in range(0, len(input_list), size)]
 
-def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
-                         prefix: str = '', suffix: str = '',
-                         enclosure_start: str = '', enclosure_end: str = '') -> List[List[str]]:
-    # pylint: disable=too-many-locals
+def _chunk_list_by_length(input_list: List[DapperRow], max_length: int,
+                          prefix: str = '', suffix: str = '') -> List[List[str]]:
+    # pylint: disable=too-many-locals,too-many-branches
     '''
     Split list by length, accounting for prefix on first chunk, suffix on last chunk,
     and enclosure on all chunks
@@ -208,39 +207,46 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
     current_rows = []
     is_first_chunk = True
 
-    # Calculate enclosure overhead (applied to every chunk)
-    enclosure_overhead = string_width(enclosure_start) + string_width(enclosure_end)
-
     for current_item in input_list:
         item_width = string_width(current_item.content)
 
         # Check if item is too large for any page
         if item_width > max_length:
-            raise DapperTableException(f'Length of input "{current_item.content}" is greater than max length {max_length}')
+            raise DapperTableError(f'Length of input "{current_item.content}" is greater than max length {max_length}')
 
         # Determine available space for current chunk
         if is_first_chunk:
-            available_space = max_length - string_width(prefix) - enclosure_overhead
+            available_space = max_length - string_width(prefix)
         else:
-            available_space = max_length - enclosure_overhead
+            available_space = max_length
 
-        # If first item doesn't fit with prefix + enclosure, create empty chunk with just prefix
-        if is_first_chunk and item_width > available_space:
+        # Calculate the size this item will add to the chunk
+        # Include newline separator if this isn't the first row in the chunk
+        item_size_to_add = item_width
+        if current_rows:  # If there are already rows, we need a newline before this one
+            item_size_to_add += 1
+
+        # If first item doesn't fit with prefix, create empty chunk with just prefix
+        if is_first_chunk and item_size_to_add > available_space:
             # Create empty chunk for prefix, then continue with normal chunking
             new_rows.append([])
             is_first_chunk = False
-            available_space = max_length - enclosure_overhead
+            available_space = max_length
+            # Recalculate since we're now in a new chunk (first item, no newline needed)
+            item_size_to_add = item_width
 
-        if item_width + current_size > available_space:
+        if current_size + item_size_to_add > available_space:
             # Current chunk is full, start new chunk
             new_rows.append(current_rows)
             current_rows = []
             current_size = 0
             is_first_chunk = False
             available_space = max_length
+            # Recalculate since we're now in a new chunk (first item, no newline needed)
+            item_size_to_add = item_width
 
         current_rows.append(current_item)
-        current_size += item_width
+        current_size += item_size_to_add
 
     # Add the last chunk
     if current_rows:
@@ -250,7 +256,10 @@ def chunk_list_by_length(input_list: List[DapperRow], max_length: int,
     if new_rows and suffix:
         while new_rows:
             last_chunk = new_rows[-1]
+            # Calculate total size including newlines between rows
             last_chunk_size = sum(string_width(row.content) for row in last_chunk)
+            if len(last_chunk) > 1:
+                last_chunk_size += len(last_chunk) - 1  # Add newlines between rows
 
             if last_chunk_size + string_width(suffix) <= max_length:
                 # Last chunk fits with suffix
@@ -273,14 +282,15 @@ class DapperTable():
     '''
     Split large inputs into smaller messages, also supports formatting
     '''
-    def __init__(self, header_options : DapperTableHeaderOptions = None,
-                 pagination_options: PaginationSetting = None, collapse_newlines: bool = True,
+    def __init__(self, columns: Columns = None,
+                 pagination_options: _PaginationBase = None, collapse_newlines: bool = True,
                  prefix: str = '', suffix: str = '',
                  enclosure_start: str = '', enclosure_end: str = ''):
         '''
         Init a dapper table
 
-        headerOptions       :   DapperTable header options, if not given will treat as raw input
+        columns             :   Column definitions; if not given will treat as raw input
+        pagination_options  :   Pagination settings
         collapse_newlines   :   Collapse multiple newlines in messages
         prefix              :   String to prepend to first page of output
         suffix              :   String to append to last page of output
@@ -298,34 +308,35 @@ class DapperTable():
         self._rows_per_message = None
         self._length_per_message = None
         if pagination_options:
-            if pagination_options.pagination_type == PaginationOptions.ROWS:
+            if pagination_options.pagination_type == PaginationType.ROWS:
                 self._rows_per_message = pagination_options.rows_per_message
                 if pagination_options.rows_per_message and pagination_options.rows_per_message < 1:
-                    raise DapperTableException(f'Invalid value for rows per message: {pagination_options.rows_per_message}')
-            if pagination_options.pagination_type == PaginationOptions.LENGTH:
-                self._length_per_message = pagination_options.length_per_message
-                if pagination_options.length_per_message < 1:
-                    raise DapperTableException(f'Invalid value for length per message: {pagination_options.length_per_message}')
+                    raise DapperTableError(f'Invalid value for rows per message: {pagination_options.rows_per_message}')
+            if pagination_options.pagination_type == PaginationType.LENGTH:
+                # Make sure we take the enclosures into account
+                self._length_per_message = pagination_options.length_per_message - string_width(self._enclosure_start) - string_width(self._enclosure_end)
+                if self._length_per_message < 1:
+                    raise DapperTableError(f'Invalid value for length per message: {pagination_options.length_per_message}')
                 # Validate prefix/suffix don't exceed pagination length
                 if string_width(prefix) > pagination_options.length_per_message:
-                    raise DapperTableException(f'Prefix length ({string_width(prefix)}) exceeds pagination length ({pagination_options.length_per_message})')
+                    raise DapperTableError(f'Prefix length ({string_width(prefix)}) exceeds pagination length ({pagination_options.length_per_message})')
                 if string_width(suffix) > pagination_options.length_per_message:
-                    raise DapperTableException(f'Suffix length ({string_width(suffix)}) exceeds pagination length ({pagination_options.length_per_message})')
+                    raise DapperTableError(f'Suffix length ({string_width(suffix)}) exceeds pagination length ({pagination_options.length_per_message})')
 
         # Headers
         self._headers = None
         self._separator = None
         # Track pad indexing
-        self._contains_zero_pad_index = False
+        self._contains_zero_pad = False
 
-        if header_options:
-            self._headers = header_options.headers
+        if columns:
+            self._headers = columns.headers
             for header in self._headers:
-                if header.zero_pad_index:
-                    self._contains_zero_pad_index = True
+                if header.zero_pad:
+                    self._contains_zero_pad = True
                     break
             # Make sure we add a single space at the end
-            self._separator = f'{header_options.separator.replace(" ", "")} '
+            self._separator = f'{columns.separator.replace(" ", "")} '
             # Init first headers
             self._header_rows = self._generate_headers()
 
@@ -351,9 +362,9 @@ class DapperTable():
         col_items = []
         # Setup headers as first row
         for i, col in enumerate(self._headers):
-            col_string = shorten_string(col.name, col.length)
+            col_string = shorten_string(col.name, col.width)
             is_last_column = i == len(self._headers) - 1
-            formatted_col = self._generate_formatted_string(col.length, col_string, is_last_column)
+            formatted_col = self._generate_formatted_string(col.width, col_string, is_last_column)
             col_items.append(formatted_col)
         row_string = self._separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
@@ -368,9 +379,9 @@ class DapperTable():
         '''
         if self._headers:
             if not isinstance(row, list):
-                raise DapperTableException('Row input must be list if headers were given')
+                raise DapperTableError('Row input must be list if headers were given')
             if len(row) != len(self._headers):
-                raise DapperTableException('Row length must match length of headers')
+                raise DapperTableError('Row length must match length of headers')
         return True
 
 
@@ -387,22 +398,22 @@ class DapperTable():
         padding = None
         col_items = []
         for (count, item) in enumerate(row):
-            if self._headers[count].zero_pad_index:
+            if self._headers[count].zero_pad:
                 padding = self._check_padding_zeros(item)
                 item = f'{"0" * padding}{item}'
-            col_string = shorten_string(item, self._headers[count].length)
+            col_string = shorten_string(item, self._headers[count].width)
             is_last_column = count == len(self._headers) - 1
-            formatted_col = self._generate_formatted_string(self._headers[count].length, col_string, is_last_column)
+            formatted_col = self._generate_formatted_string(self._headers[count].width, col_string, is_last_column)
             col_items.append(formatted_col)
         row_string = self._separator.join(i for i in col_items)
         row_string = row_string.rstrip(' ')
         return DapperRow(row_string, row, zero_padding_value=padding)
 
-    def __reset_zero_pad_index(self, current_index: int) -> bool:
+    def __reset_zero_pad(self, current_index: int) -> bool:
         '''
-        Reset zero pad index on previous rows
+        Reset zero pad on previous rows
         '''
-        if not self._contains_zero_pad_index:
+        if not self._contains_zero_pad:
             return False
         # Format previous rolls to make sure leading prefixes is set
         padding_check = None
@@ -411,7 +422,7 @@ class DapperTable():
             if padding_check is None:
                 for (count, item) in enumerate(row.input_values):
                     # If the padding is already fine, lets just return
-                    if self._headers[count].zero_pad_index:
+                    if self._headers[count].zero_pad:
                         padding = self._check_padding_zeros(item)
                         if padding == row.zero_padding_value:
                             return True
@@ -427,7 +438,7 @@ class DapperTable():
 
         row     :   List of items to go in row, assumes each item list is string representation
 
-        returns: index of new data added
+        returns: index of new row
         '''
         # If headers, add extra checks, else just accept input
         self._validate_row(row)
@@ -435,22 +446,22 @@ class DapperTable():
         if self._headers:
             row_data = self._format_row(row)
         self._rows.append(row_data)
-        self.__reset_zero_pad_index(len(self._rows) - 1)
+        self.__reset_zero_pad(len(self._rows) - 1)
         return len(self._rows) - 1
 
     def edit_row(self, index: int, row: List[str] | str) -> bool:
         '''
         Edit row contents
-        
+
         index   :   Index of row to update
         row     :   List of items to go in row, assumes each item list is string representation
         '''
         if index < 0:
-            raise DapperTableException('Index must be positive number')
+            raise DapperTableError('Index must be positive number')
         try:
             _current_value = self._rows[int(index)]
         except IndexError as exc:
-            raise DapperTableException(f'Invalid edit index given {index}') from exc
+            raise DapperTableError(f'Invalid edit index given {index}') from exc
         self._validate_row(row)
         row_data = DapperRow(row, row)
         if self._headers:
@@ -467,10 +478,10 @@ class DapperTable():
         try:
             del self._rows[index]
         except IndexError as exc:
-            raise DapperTableException('Invalid deletion index') from exc
+            raise DapperTableError('Invalid deletion index') from exc
         return True
 
-    def get_paginated_rows(self) -> List[DapperRow]:
+    def get_pages(self) -> List[DapperRow]:
         '''
         Return list of rows based on pagination options
         '''
@@ -479,14 +490,14 @@ class DapperTable():
         if not (self._rows_per_message or self._length_per_message):
             return all_rows
         if self._rows_per_message:
-            return chunk_list(all_rows, self._rows_per_message)
+            return _chunk_list(all_rows, self._rows_per_message)
         # Assume length per message
-        return chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix,
-                                   self._enclosure_start, self._enclosure_end)
+        return _chunk_list_by_length(all_rows, self._length_per_message, self._prefix, self._suffix)
 
-    def print_rows(self, row_list: List[DapperRow]) -> str:
+    def format_page(self, row_list: List[DapperRow]) -> str:
         '''
-        If set, remove double newlines and clean up output
+        Join a list of DapperRow objects into a formatted string,
+        collapsing double newlines if set.
         '''
         combined = '\n'.join(i.content for i in row_list)
         if not self.collapse_newlines:
@@ -495,19 +506,20 @@ class DapperTable():
         combined = combined.strip('\n')
         return combined
 
-    def print(self) -> List[str] | str:
+    def render(self) -> List[str] | str:
         '''
-        Print table
+        Render table output. Returns a string if no pagination is set,
+        or a list of strings if paginated.
         '''
         # If no pagination options given
         if not (self._rows_per_message or self._length_per_message):
-            output = self.print_rows(self._header_rows + self._rows)
+            output = self.format_page(self._header_rows + self._rows)
             return f'{self._prefix}{self._enclosure_start}{output}{self._enclosure_end}{self._suffix}'
 
-        split_rows = self.get_paginated_rows()
+        split_rows = self.get_pages()
         split_output = []
         for i, sr in enumerate(split_rows):
-            page_output = self.print_rows(sr)
+            page_output = self.format_page(sr)
             # Wrap content with enclosure
             page_output = f'{self._enclosure_start}{page_output}{self._enclosure_end}'
             # Add prefix to first page (before enclosure)
@@ -519,10 +531,12 @@ class DapperTable():
             split_output.append(page_output)
         return split_output
 
-
     @property
     def size(self) -> int:
         '''
         Return size of table (does not include headers)
         '''
+        return len(self._rows)
+
+    def __len__(self) -> int:
         return len(self._rows)
