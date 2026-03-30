@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dappertable"
+version = "1.0.0"
+description = "Print python formatted tables"
+authors = [
+    {name = "Tyler D. North", email = "me@tyler-north.com"},
+]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
