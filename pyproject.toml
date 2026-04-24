@@ -4,15 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dappertable"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Print python formatted tables"
 authors = [
     {name = "Tyler D. North", email = "me@tyler-north.com"},
 ]
-dynamic = ["dependencies"]
+dependencies = [
+    "wcwidth==0.6.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==9.0.3",
+    "tox==4.53.0",
+    "pylint==4.0.5",
+    "pytest-cov==7.1.0",
+    "pytest-mock==3.15.1",
+]
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 exclude = ["tests"]
