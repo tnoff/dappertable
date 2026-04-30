@@ -22,6 +22,42 @@ stages:
   - notify
   - renovate
 
+bump-version:
+  stage: validate
+  image: alpine:latest
+  variables:
+    GIT_DEPTH: 0
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      BASE_VERSION=$(git show "origin/main:VERSION" | tr -d '[:space:]')
+      CURRENT_VERSION=$(cat VERSION | tr -d '[:space:]')
+
+      if [ "$BASE_VERSION" != "$CURRENT_VERSION" ]; then
+        echo "Version already bumped ($BASE_VERSION -> $CURRENT_VERSION), skipping"
+        exit 0
+      fi
+
+      MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+      MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+      PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+      NEW_VERSION="$MAJOR.$MINOR.$((PATCH+1))"
+      echo "$NEW_VERSION" > VERSION
+
+      git config user.email "ci@gitlab"
+      git config user.name "GitLab CI"
+      if [ -n "$GITLAB_PUSH_TOKEN" ]; then
+        git remote set-url origin "https://deploy-token:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      else
+        git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      fi
+      git add VERSION
+      git commit -m "chore: bump patch version to $NEW_VERSION"
+      git push origin "HEAD:$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\//
+
 generate-tox:
   stage: validate
   image: python:3.14-slim
