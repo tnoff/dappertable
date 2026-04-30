@@ -24,6 +24,19 @@ bump-version:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\//
 
+spellcheck:
+  stage: validate
+  image: python:3.14-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq aspell aspell-en
+    - pip install pyspelling
+  script:
+    - pyspelling -c .spellcheck/spellcheck.yml --name Markdown
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 generate-tox:
   stage: validate
   image: python:3.14-slim
