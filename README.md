@@ -7,7 +7,7 @@ Handles wide characters (including East Asian languages) using the [wcwidth](htt
 ## Installation
 
 ```
-$ git clone https://github.com/tnoff/dappertable.git
+$ git clone https://gitlab.com/tnoff-projects/dappertable.git
 $ pip install dappertable/
 ```
 

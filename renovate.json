@@ -5,8 +5,8 @@
   ],
   "packageRules": [
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchPackageNames": ["pytest", "tox", "pylint", "pytest-cov", "pytest-mock"],
+      "matchDepTypes": ["test"],
+      "matchPackageNames": ["pytest", "tox", "pylint", "pytest-cov", "pytest-mock", "bandit"],
       "matchUpdateTypes": ["major", "minor", "patch"],
       "automerge": true
     },
