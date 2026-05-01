@@ -11,6 +11,9 @@ include:
   - project: 'tnoff-projects/github-workflows'
     ref: b415f749e5074e47b5c05af8124a5a72a4c67825
     file: '/gitlab/bump-version.yml'
+  - project: 'tnoff-projects/github-workflows'
+    ref: de98748c6a9dc92ded91f5d334563199bf129827
+    file: '/gitlab/trufflehog.yml'
 
 stages:
   - validate
@@ -23,6 +26,15 @@ bump-version:
   extends: .bump-version
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\//
+
+trufflehog:
+  extends: .trufflehog
+  stage: validate
+  rules:
+    # Fork MRs require a project member to manually trigger jobs — prevents untrusted code from running CI automatically
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 spellcheck:
   stage: validate
