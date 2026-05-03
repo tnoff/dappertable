@@ -10,7 +10,7 @@ authors = [
     {name = "Tyler D. North", email = "me@tyler-north.com"},
 ]
 dependencies = [
-    "wcwidth==0.6.0",
+    "wcwidth==0.7.0",
 ]
 
 [project.optional-dependencies]
