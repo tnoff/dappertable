@@ -10,11 +10,12 @@
       "matchDepTypes": ["test"],
       "matchPackageNames": ["pytest", "tox", "pylint", "pytest-cov", "pytest-mock", "bandit"],
       "matchUpdateTypes": ["major", "minor", "patch"],
-      "additionalBranchPrefix": "dev-",
+      "additionalBranchPrefix": "test-",
       "automerge": true
     },
     {
       "matchUpdateTypes": ["patch"],
+      "additionalBranchPrefix": "dev-",
       "automerge": true
     }
   ]
