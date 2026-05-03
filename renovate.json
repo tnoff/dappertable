@@ -4,11 +4,13 @@
     "config:recommended"
   ],
   "enabledManagers": ["gitlabci", "gitlabci-include", "pep621"],
+  "rebaseWhen": "behind-base-branch",
   "packageRules": [
     {
       "matchDepTypes": ["test"],
       "matchPackageNames": ["pytest", "tox", "pylint", "pytest-cov", "pytest-mock", "bandit"],
       "matchUpdateTypes": ["major", "minor", "patch"],
+      "additionalBranchPrefix": "dev-",
       "automerge": true
     },
     {

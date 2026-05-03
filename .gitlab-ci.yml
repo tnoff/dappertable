@@ -1,18 +1,18 @@
 include:
   - project: 'tnoff-projects/github-workflows'
-    ref: b415f749e5074e47b5c05af8124a5a72a4c67825
+    ref: 63917bb6122f703890a7f7ee34b9a5ca55966ea2
     file: '/gitlab/tag.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: b415f749e5074e47b5c05af8124a5a72a4c67825
+    ref: 63917bb6122f703890a7f7ee34b9a5ca55966ea2
     file: '/gitlab/discord-notify.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: b415f749e5074e47b5c05af8124a5a72a4c67825
+    ref: 63917bb6122f703890a7f7ee34b9a5ca55966ea2
     file: '/gitlab/renovate.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: b415f749e5074e47b5c05af8124a5a72a4c67825
+    ref: 63917bb6122f703890a7f7ee34b9a5ca55966ea2
     file: '/gitlab/bump-version.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: de98748c6a9dc92ded91f5d334563199bf129827
+    ref: 63917bb6122f703890a7f7ee34b9a5ca55966ea2
     file: '/gitlab/trufflehog.yml'
 
 stages:
@@ -24,12 +24,16 @@ stages:
 
 bump-version:
   extends: .bump-version
+  tags:
+    - self-hosted
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\//
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\/dev-/
 
 trufflehog:
   extends: .trufflehog
   stage: validate
+  tags:
+    - self-hosted
   rules:
     # Fork MRs require a project member to manually trigger jobs — prevents untrusted code from running CI automatically
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
@@ -38,7 +42,9 @@ trufflehog:
 
 spellcheck:
   stage: validate
-  image: python:3.14-slim
+  image: docker.io/library/python:3.14-slim
+  tags:
+    - self-hosted
   before_script:
     - apt-get update -qq && apt-get install -y -qq aspell aspell-en
     - pip install pyspelling
@@ -51,7 +57,9 @@ spellcheck:
 
 generate-tox:
   stage: validate
-  image: python:3.14-slim
+  image: docker.io/library/python:3.14-slim
+  tags:
+    - self-hosted
   before_script:
     - pip install tox
   script:
@@ -73,7 +81,9 @@ generate-tox:
           '',
           'tox:',
           '  stage: test',
-          f'  image: python:${{PYTHON_VERSION}}-slim',
+          f'  image: docker.io/library/python:${{PYTHON_VERSION}}-slim',
+          '  tags:',
+          '    - self-hosted',
           '  parallel:',
           '    matrix:',
           f'      - PYTHON_VERSION: {versions_yaml}',
@@ -112,7 +122,9 @@ tox-pipeline:
 
 diff-cover:
   stage: test
-  image: python:3.14-slim
+  image: docker.io/library/python:3.14-slim
+  tags:
+    - self-hosted
   variables:
     GIT_DEPTH: 0
   before_script:
@@ -129,6 +141,8 @@ diff-cover:
 tag-build:
   extends: .tag
   stage: tag
+  tags:
+    - self-hosted
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
       when: on_success
@@ -137,6 +151,8 @@ notify-mr:
   extends: .discord-notify
   stage: notify
   needs: []
+  tags:
+    - self-hosted
   variables:
     NOTIFY_TYPE: mr_opened
     DISCORD_WEBHOOK_URL: $DISCORD_MR_WEBHOOK
@@ -151,6 +167,8 @@ notify-tag-failure:
   extends: .discord-notify
   stage: notify
   needs: [tag-build]
+  tags:
+    - self-hosted
   variables:
     NOTIFY_TYPE: failure
     DISCORD_WEBHOOK_URL: $DISCORD_BUILD_FAILURE_WEBHOOK
@@ -162,6 +180,8 @@ notify-merged:
   extends: .discord-notify
   stage: notify
   needs: []
+  tags:
+    - self-hosted
   variables:
     NOTIFY_TYPE: mr_merged
     DISCORD_WEBHOOK_URL: $DISCORD_MR_WEBHOOK
@@ -172,5 +192,7 @@ notify-merged:
 renovate:
   extends: .renovate
   stage: renovate
+  tags:
+    - self-hosted
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
