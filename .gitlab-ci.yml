@@ -22,18 +22,18 @@ stages:
   - notify
   - renovate
 
-bump-version:
-  extends: .bump-version
+default:
   tags:
     - self-hosted
+
+bump-version:
+  extends: .bump-version
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\/dev-/
 
 trufflehog:
   extends: .trufflehog
   stage: validate
-  tags:
-    - self-hosted
   rules:
     # Fork MRs require a project member to manually trigger jobs — prevents untrusted code from running CI automatically
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
@@ -43,8 +43,6 @@ trufflehog:
 spellcheck:
   stage: validate
   image: docker.io/library/python:3.14-slim
-  tags:
-    - self-hosted
   before_script:
     - apt-get update -qq && apt-get install -y -qq aspell aspell-en
     - pip install pyspelling
@@ -58,8 +56,6 @@ spellcheck:
 generate-tox:
   stage: validate
   image: docker.io/library/python:3.14-slim
-  tags:
-    - self-hosted
   before_script:
     - pip install tox
   script:
@@ -75,15 +71,20 @@ generate-tox:
               versions.append(f'{m.group(1)}.{m.group(2)}')
 
       versions_yaml = '[' + ', '.join(f'"{v}"' for v in versions) + ']'
+      # Pick the highest Python version as the canonical coverage producer for diff-cover.
+      latest = max(versions, key=lambda v: tuple(int(p) for p in v.split('.')))
       lines = [
           'stages:',
           '  - test',
+          '  - coverage',
+          '',
+          'default:',
+          '  tags:',
+          '    - self-hosted',
           '',
           'tox:',
           '  stage: test',
           f'  image: docker.io/library/python:${{PYTHON_VERSION}}-slim',
-          '  tags:',
-          '    - self-hosted',
           '  parallel:',
           '    matrix:',
           f'      - PYTHON_VERSION: {versions_yaml}',
@@ -91,6 +92,27 @@ generate-tox:
           '    - pip install tox',
           '  script:',
           "    - tox -e $(python3 -c \"import sys; v=sys.version_info; print(f'py{v.major}{v.minor}')\")",
+          '  artifacts:',
+          '    paths:',
+          '      - coverage.xml',
+          '    expire_in: 1 day',
+          '    when: always',
+          '  rules:',
+          '    - when: always',
+          '',
+          'diff-cover:',
+          '  stage: coverage',
+          f'  image: docker.io/library/python:{latest}-slim',
+          '  needs:',
+          f'    - job: "tox: [{latest}]"',
+          '      artifacts: true',
+          '  variables:',
+          '    GIT_DEPTH: "0"',
+          '  before_script:',
+          '    - apt-get update -qq && apt-get install -y -qq git',
+          '    - pip install diff-cover',
+          '  script:',
+          '    - diff-cover coverage.xml --compare-branch=origin/main --fail-under=100',
           '  rules:',
           '    - when: always',
       ]
@@ -120,29 +142,9 @@ tox-pipeline:
       when: manual
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
-diff-cover:
-  stage: test
-  image: docker.io/library/python:3.14-slim
-  tags:
-    - self-hosted
-  variables:
-    GIT_DEPTH: 0
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git
-    - pip install .[test] diff-cover
-  script:
-    - pytest --cov=dappertable/ --cov-report=xml tests/
-    - diff-cover coverage.xml --compare-branch=origin/main --fail-under=100
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
-      when: manual
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
 tag-build:
   extends: .tag
   stage: tag
-  tags:
-    - self-hosted
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
       when: on_success
@@ -151,8 +153,6 @@ notify-mr:
   extends: .discord-notify
   stage: notify
   needs: []
-  tags:
-    - self-hosted
   variables:
     NOTIFY_TYPE: mr_opened
     DISCORD_WEBHOOK_URL: $DISCORD_MR_WEBHOOK
@@ -167,8 +167,6 @@ notify-tag-failure:
   extends: .discord-notify
   stage: notify
   needs: [tag-build]
-  tags:
-    - self-hosted
   variables:
     NOTIFY_TYPE: failure
     DISCORD_WEBHOOK_URL: $DISCORD_BUILD_FAILURE_WEBHOOK
@@ -180,8 +178,6 @@ notify-merged:
   extends: .discord-notify
   stage: notify
   needs: []
-  tags:
-    - self-hosted
   variables:
     NOTIFY_TYPE: mr_merged
     DISCORD_WEBHOOK_URL: $DISCORD_MR_WEBHOOK
@@ -192,7 +188,5 @@ notify-merged:
 renovate:
   extends: .renovate
   stage: renovate
-  tags:
-    - self-hosted
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
