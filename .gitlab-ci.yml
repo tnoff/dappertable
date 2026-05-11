@@ -1,21 +1,21 @@
 include:
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/tag.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/discord-notify.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/renovate.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/bump-version.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/trufflehog.yml'
   - project: 'tnoff-projects/github-workflows'
-    ref: 525ddbd55058688629f0613e0e1c44ecfefb6e5a
+    ref: 5872f0029aac5cb47856ee99b28f5bf080869d18
     file: '/gitlab/release.yml'
 
 stages:
