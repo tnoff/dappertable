@@ -5,6 +5,24 @@ All notable changes to DapperTable will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-05-10
+
+### Added
+- GitLab Release is now published automatically on each new tag, with release notes pulled from the matching CHANGELOG section
+- Renovate MRs now bump CHANGELOG.md alongside VERSION via the shared bump-version template's BUMP_CHANGELOG option
+
+### Changed
+- Moved diff-cover check into the tox suite
+- Tightened renovate branch matching logic
+
+## [1.1.2] - 2026-05-03
+
+### Changed
+- Bumped wcwidth to v0.7.0
+- Bumped tox to v4.53.1
+- Added TruffleHog secret scanning and Markdown spellcheck to CI
+- Tightened Renovate manager configuration
+
 ## [1.1.1] - 2026-04-30
 
 ### Changed
