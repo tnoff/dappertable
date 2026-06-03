@@ -1,48 +1,52 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI coding agents working in this repository. For library
+usage and the public API see [README.md](README.md); for setup, tests,
+and linting see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-## Project Overview
+## What this library does
 
-DapperTable is a Python library for formatting tables with f-strings, similar to prettytable but with better support for East Asian characters that have double-width spacing. The library handles CJK (Chinese, Japanese, Korean) character formatting correctly and can split tables into multiple strings for API message length limits.
+DapperTable formats tables for printing — similar to `prettytable`, with
+two differentiators:
 
-## Development Commands
-
-### Testing
-- Run tests: `pytest tests/`
-- Run tests with coverage: `pytest --cov=dappertable/ --cov-report=html --cov-fail-under=100 tests/`
-- Run linting: `pylint dappertable/`
-- Run all tests across Python versions: `tox`
-
-### Build
-- Build package: `python setup.py sdist bdist_wheel`
+- **CJK double-width handling.** Chinese/Japanese/Korean characters
+  display as two columns wide; `wcwidth` is used to compute the actual
+  display width so columns align correctly.
+- **Pagination for chat APIs.** `rows_per_message` splits the rendered
+  table into multiple strings, each ≤ the limit a downstream API
+  imposes (e.g. Discord's 2000-char message cap).
 
 ## Architecture
 
-### Core Components
+Single module: `dappertable/__init__.py`. Public surface:
 
-**Main Library (`dappertable/__init__.py`)**:
-- `DapperTable` class: Main table formatting class that handles headers, rows, and output formatting
-- `shorten_string_cjk()`: Truncates strings while respecting CJK double-width characters
-- `string_length_cjk()`: Calculates proper string length including CJK characters
-- `format_string_length()`: Adjusts format lengths for CJK character spacing
-- `DapperTableException`: Custom exception class
+| Symbol | Role |
+|---|---|
+| `DapperTable` | Builder class — `add_row()`, `print()` |
+| `shorten_string_cjk(s, length)` | Truncate to a display-width budget, respecting CJK |
+| `string_length_cjk(s)` | Display width of a string (CJK = 2) |
+| `format_string_length(s, length)` | Pad/truncate to a display-width budget |
+| `DapperTableException` | Raised for invalid configuration / row shape |
 
-### Key Features
+Headers are dicts: `{'name': '<col>', 'length': <width>}`. Rows are added
+positionally with `add_row(...)` and must match the header count.
+`print()` returns a `str` (single rendered table) or a `list[str]` when
+`rows_per_message` is set.
 
-**CJK Character Support**: The library properly handles East Asian characters that display as double-width, ensuring correct table alignment. This is the primary differentiator from other table libraries.
+## Conventions
 
-**Table Pagination**: Tables can be split into multiple strings using `rows_per_message` parameter, useful for APIs with message length limits (like Discord bots).
+- **100% coverage** is enforced by `tox` (`--cov-fail-under=100`). New
+  code must include tests that exercise every branch.
+- Tests live in `tests/test_dappertable.py`; mirror that file's
+  per-feature grouping (CJK helpers, table construction, row management,
+  errors, pagination).
+- `bandit` runs in `tox` — avoid `subprocess`, `eval`, or anything else
+  that requires a `# nosec` annotation unless absolutely necessary.
 
-**Table Structure**: 
-- Headers defined with `{'name': 'column_name', 'length': width}`
-- Rows added individually with `add_row()`
-- Output via `print()` method returns string or list of strings
+## Stable wire surface
 
-### Testing Structure
-
-All tests are in `tests/test_dappertable.py` with 100% coverage requirement. Tests cover:
-- CJK character handling functions
-- Table creation and row management  
-- Error conditions and exceptions
-- Pagination functionality
+`wcwidth==0.7.0` is pinned exactly (not `~=`). The CJK width tables
+change between versions and a `~=` upgrade would silently shift column
+widths in downstream consumers. Don't relax this constraint without
+running the test suite against the new wcwidth and updating expected
+widths if they change.
