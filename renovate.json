@@ -7,15 +7,15 @@
   "rebaseWhen": "behind-base-branch",
   "packageRules": [
     {
+      "matchUpdateTypes": ["patch"],
+      "additionalBranchPrefix": "dev-",
+      "automerge": true
+    },
+    {
       "matchDepTypes": ["test"],
       "matchPackageNames": ["pytest", "tox", "pylint", "pytest-cov", "pytest-mock", "bandit"],
       "matchUpdateTypes": ["major", "minor", "patch"],
       "additionalBranchPrefix": "test-",
-      "automerge": true
-    },
-    {
-      "matchUpdateTypes": ["patch"],
-      "additionalBranchPrefix": "dev-",
       "automerge": true
     }
   ]
