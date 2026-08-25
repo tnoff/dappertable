@@ -1,0 +1,69 @@
+name: CI
+
+# Pull-request checks, ported from .gitlab-ci.yml. Shared jobs come from
+# tnoff/github-workflows, SHA-pinned the same way the GitLab `include:` refs
+# were; Renovate's github-actions manager keeps the pins current.
+
+on:
+  pull_request:
+
+# One in-flight run per PR. Renovate force-pushes on rebase
+# (rebaseWhen: behind-base-branch), and without this every rebase leaves its
+# predecessor running to completion.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Scan for secrets
+    uses: tnoff/github-workflows/.github/workflows/trufflehog.yml@499db253da0863e8705d4582d75ee253610934ac
+
+  spellcheck:
+    name: Spellcheck
+    uses: tnoff/github-workflows/.github/workflows/spellcheck.yml@499db253da0863e8705d4582d75ee253610934ac
+
+  # extra_apt is deliberately empty. The GitLab job ran on the pre-baked
+  # ci-base-images (build-essential, git, ffmpeg, postgresql), but that image
+  # was the fleet-wide Python base rather than this repo's requirement --
+  # dappertable depends on wcwidth and a pure-Python test extra, nothing that
+  # needs a system library.
+  tox:
+    name: Tox
+    uses: tnoff/github-workflows/.github/workflows/tox.yml@499db253da0863e8705d4582d75ee253610934ac
+
+  bump-version:
+    name: Bump version
+    # Matches the GitLab rule. The dev- prefix comes from the shared python
+    # preset and is load-bearing: it is what decides whether an update bumps
+    # VERSION, writes a changelog fragment, and therefore cuts a release.
+    if: startsWith(github.head_ref, 'renovate/dev-')
+    permissions:
+      contents: write
+    uses: tnoff/github-workflows/.github/workflows/bump-version.yml@499db253da0863e8705d4582d75ee253610934ac
+    with:
+      bump_changelog: true
+    secrets:
+      git_push_token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+  # Supplies the code-owner approval Renovate cannot give its own PRs.
+  #
+  # The pattern is every Renovate branch, not just the automerged ones. This
+  # workflow does not decide what merges -- Renovate's own automerge rules do
+  # (the shared python preset automerges the test- group, and default-github
+  # automerges the reusable-workflow pin). All this does is satisfy a mechanical
+  # gate that a bot cannot satisfy for itself, so scoping it narrower than
+  # Renovate's merge policy would just leave some PRs stuck.
+  auto-approve:
+    name: Auto-approve
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: tnoff/github-workflows/.github/workflows/renovate-auto-approve.yml@499db253da0863e8705d4582d75ee253610934ac
+    with:
+      branch_pattern: '^renovate/'
+    secrets:
+      approval_token: ${{ secrets.APPROVAL_TOKEN }}
