@@ -5,6 +5,13 @@ All notable changes to DapperTable will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2026-08-26
+
+### Changed
+
+- CI moved from GitLab to GitHub Actions. Tests, spellcheck, secret scanning, dependency updates, tagging and releases now all run on GitHub; the GitLab project stays as a break-glass mirror.
+- The test matrix runs on GitHub-hosted runners across Python 3.11 to 3.14, replacing the dynamically generated GitLab child pipeline.
+
 ## [1.1.5] - 2026-07-01
 
 ### Changed
