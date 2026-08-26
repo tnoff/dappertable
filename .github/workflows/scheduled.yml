@@ -1,0 +1,30 @@
+name: Scheduled
+
+# Replaces the GitLab weekly pipeline schedule, deactivated in terraform!247
+# when this repo became GitHub-canonical. The cron matches the schedule
+# terraform derived for it, so the cadence is unchanged by the move.
+
+on:
+  schedule:
+    - cron: '52 12 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    name: Renovate
+    uses: tnoff/github-workflows/.github/workflows/renovate.yml@499db253da0863e8705d4582d75ee253610934ac
+    secrets:
+      renovate_token: ${{ secrets.RENOVATE_TOKEN }}
+
+  branch-cleanup:
+    name: Branch cleanup
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: tnoff/github-workflows/.github/workflows/branch-cleanup.yml@499db253da0863e8705d4582d75ee253610934ac
+    with:
+      age_days: 30
+      dry_run: false

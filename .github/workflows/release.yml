@@ -1,0 +1,52 @@
+name: Release
+
+# Runs on the default branch, replacing the GitLab `push` stage.
+#
+# The three jobs are a deliberate two-pass design carried over from GitLab.
+# assemble-changelog folds any pending changelog.d fragments into CHANGELOG.md
+# and pushes; tag runs with gate_on_fragments and DEFERS while fragments are
+# still present, so this pass cuts no tag. That fold push then triggers a fresh
+# run of this workflow where the fragment directory is empty, the gate passes,
+# and tag + release run against the assembled changelog.
+#
+# The push token must therefore be a PAT, not GITHUB_TOKEN: a GITHUB_TOKEN push
+# triggers no follow-up run, so the second pass never happens and no release is
+# ever cut -- with every job green.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-changelog:
+    name: Assemble changelog
+    permissions:
+      contents: write
+    uses: tnoff/github-workflows/.github/workflows/assemble-changelog.yml@499db253da0863e8705d4582d75ee253610934ac
+    secrets:
+      push_token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+  tag:
+    name: Tag
+    needs: assemble-changelog
+    permissions:
+      contents: write
+    uses: tnoff/github-workflows/.github/workflows/tag.yml@499db253da0863e8705d4582d75ee253610934ac
+    with:
+      gate_on_fragments: true
+    secrets:
+      push_token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+  release:
+    name: Release
+    needs: tag
+    permissions:
+      contents: write
+    uses: tnoff/github-workflows/.github/workflows/release.yml@499db253da0863e8705d4582d75ee253610934ac
+    with:
+      version: ${{ needs.tag.outputs.version }}
+      tag_created: ${{ needs.tag.outputs.tag_created }}
