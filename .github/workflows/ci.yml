@@ -49,21 +49,37 @@ jobs:
     secrets:
       git_push_token: ${{ secrets.GIT_PUSH_TOKEN }}
 
-  # Supplies the code-owner approval Renovate cannot give its own PRs.
-  #
-  # The pattern is every Renovate branch, not just the automerged ones. This
-  # workflow does not decide what merges -- Renovate's own automerge rules do
-  # (the shared python preset automerges the test- group, and default-github
-  # automerges the reusable-workflow pin). All this does is satisfy a mechanical
-  # gate that a bot cannot satisfy for itself, so scoping it narrower than
-  # Renovate's merge policy would just leave some PRs stuck.
-  auto-approve:
-    name: Auto-approve
+  result:
+    name: CI result
+    # The stable name for the branch ruleset to require.
+    #
+    # Requiring the individual jobs by name does not gate anything: GitHub
+    # scores a `skipped` required check as SUCCESS, and every shared workflow
+    # here carries an `allow_fork_prs` gate that can skip its only job. Tox's
+    # matrix is worse -- the legs come from `tox -l` at runtime, so naming
+    # `tox (3.13)` couples the ruleset to a file in a different repo.
+    #
+    # This job always runs and its name never changes, so the ruleset requires
+    # exactly one context and the jobs underneath stay free to change.
+    if: always()
+    needs: [secrets, spellcheck, tox]
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write
-      pull-requests: write
-    uses: tnoff/github-workflows/.github/workflows/renovate-auto-approve.yml@3326ac29c672f67bce33272b3a09fe06c9947080
-    with:
-      branch_pattern: '^renovate/'
-    secrets:
-      approval_token: ${{ secrets.APPROVAL_TOKEN }}
+      contents: read
+    steps:
+      - name: Summarise
+        run: |
+          echo "secrets:    ${{ needs.secrets.result }}"
+          echo "spellcheck: ${{ needs.spellcheck.result }}"
+          echo "tox:        ${{ needs.tox.result }}"
+
+      - name: Fail if any job failed
+        # `skipped` is deliberately allowed: with allow_fork_prs false a fork
+        # PR skips the cascade, which is the intended outcome, not a failure.
+        if: >-
+          needs.secrets.result == 'failure' || needs.secrets.result == 'cancelled' ||
+          needs.spellcheck.result == 'failure' || needs.spellcheck.result == 'cancelled' ||
+          needs.tox.result == 'failure' || needs.tox.result == 'cancelled'
+        run: |
+          echo "::error::One or more CI jobs did not pass."
+          exit 1
