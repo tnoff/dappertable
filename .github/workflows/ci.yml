@@ -68,13 +68,13 @@ jobs:
     name: Scan for secrets
     needs: metadata
     if: needs.metadata.outputs.only != 'true'
-    uses: tnoff/github-workflows/.github/workflows/trufflehog.yml@bad6dacd6d4d75b465314b1ec984efd86cc8f5e6
+    uses: tnoff/github-workflows/.github/workflows/trufflehog.yml@0ce2ef948ca1fbc2787f4e9cab5ffd36ddea9e4c
 
   spellcheck:
     name: Spellcheck
     needs: metadata
     if: needs.metadata.outputs.only != 'true'
-    uses: tnoff/github-workflows/.github/workflows/spellcheck.yml@bad6dacd6d4d75b465314b1ec984efd86cc8f5e6
+    uses: tnoff/github-workflows/.github/workflows/spellcheck.yml@0ce2ef948ca1fbc2787f4e9cab5ffd36ddea9e4c
 
   # extra_apt is deliberately empty. The GitLab job ran on the pre-baked
   # ci-base-images (build-essential, git, ffmpeg, postgresql), but that image
@@ -85,7 +85,7 @@ jobs:
     name: Tox
     needs: metadata
     if: needs.metadata.outputs.only != 'true'
-    uses: tnoff/github-workflows/.github/workflows/tox.yml@bad6dacd6d4d75b465314b1ec984efd86cc8f5e6
+    uses: tnoff/github-workflows/.github/workflows/tox.yml@0ce2ef948ca1fbc2787f4e9cab5ffd36ddea9e4c
 
   bump-version:
     name: Bump version
@@ -95,7 +95,7 @@ jobs:
     if: startsWith(github.head_ref, 'renovate/dev-')
     permissions:
       contents: write
-    uses: tnoff/github-workflows/.github/workflows/bump-version.yml@bad6dacd6d4d75b465314b1ec984efd86cc8f5e6
+    uses: tnoff/github-workflows/.github/workflows/bump-version.yml@0ce2ef948ca1fbc2787f4e9cab5ffd36ddea9e4c
     with:
       bump_changelog: true
     secrets:
@@ -111,7 +111,7 @@ jobs:
     name: Workflow contracts
     needs: metadata
     if: needs.metadata.outputs.only != 'true'
-    uses: tnoff/github-workflows/.github/workflows/check-workflow-contracts.yml@bad6dacd6d4d75b465314b1ec984efd86cc8f5e6
+    uses: tnoff/github-workflows/.github/workflows/check-workflow-contracts.yml@0ce2ef948ca1fbc2787f4e9cab5ffd36ddea9e4c
 
   result:
     name: CI result
