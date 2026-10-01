@@ -55,5 +55,8 @@ Both run inside `tox` and must pass for a release build.
 ## Releasing
 
 The version lives in the `VERSION` file (single-line, semver, no `v`
-prefix). Bump it and push a tag — CI handles the GitLab Release + PyPI
-upload via the shared templates from `tnoff-projects/github-workflows`.
+prefix). Merging a bump to `main` runs `.github/workflows/release.yml`,
+which assembles the changelog, tags, and creates the GitHub release using
+the shared workflows in `tnoff/github-workflows`. Renovate PRs from
+`renovate/dev-*` branches get their version bump and changelog entry
+automatically. The package is not published to PyPI.
