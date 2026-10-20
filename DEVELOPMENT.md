@@ -17,7 +17,7 @@ pip install -e ".[test]"
 ## Running tests
 
 Full suite with linting, security scan, coverage gate (100%) across
-py311–py314:
+py313–py315:
 
 ```bash
 tox
